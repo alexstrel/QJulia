@@ -1,0 +1,192 @@
+module QJuliaMR
+
+import QJuliaInterface
+import QJuliaEnums
+import QJuliaBlas
+
+using QJuliaSolvers
+
+convert_c2r = QJuliaBlas.convert_c2r
+convert_r2c = QJuliaBlas.convert_r2c
+xmy         = QJuliaBlas.gxmy
+xpy         = QJuliaBlas.gxpy
+cpy         = QJuliaBlas.gcpy
+axpy 	    = QJuliaBlas.gaxpy
+xpay 	    = QJuliaBlas.gxpay
+norm2 	    = QJuliaBlas.gnorm2
+
+@inline function cDotProductNormA(x::Vector{Complex{T}}, y::Vector{Complex{T}})  where T <: AbstractFloat 
+                 global cres = 0.0+0.0im 
+                 global rres = 0.0 
+Threads.@threads for i in 1:length(x)
+                    xx    = x[i] 
+                    cres += xx * y[i]
+                    rres += abs2(xx)
+                 end
+
+                 return (cres / rres) 
+end #cDotProductNormA
+
+@inline function cDotProductNormA(x::AbstractArray, y::AbstractArray)
+                 global cres = 0.0+0.0im 
+                 global rres = 0.0 
+Threads.@threads for i in 1:length(x)
+                    xx    = x[i] 
+                    cres += xx * y[i]
+                    rres += abs2(xx)
+                 end
+
+                 return (cres / rres) 
+end #cDotProductNormA
+
+
+#First performs the operation y[i] += a*x[i]
+#Second performs the operator x[i] -= a*z[i]
+
+@inline function caxpyXmaz(a, x::Vector{Complex{T}}, y::Vector{Complex{T}}, z::Vector{Complex{T}})  where T <: AbstractFloat 
+
+Threads.@threads for i in 1:length(x)
+                    y[i] += a*x[i]
+                    x[i] -= a*z[i]
+                 end
+end #caxpyXmaz
+
+@inline function caxpyXmaz(a, x::AbstractArray, y::AbstractArray, z::AbstractArray)
+
+Threads.@threads for i in 1:length(x)
+                    y[i] += a*x[i]
+                    x[i] -= a*z[i]
+                 end
+end #caxpyXmaz
+
+function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, param::QJuliaSolvers.QJuliaSolverParam_qj) 
+
+   println("Running MR solver.")
+
+    if (param.maxiter == 0) || (param.Nsteps == 0) 
+      if param.use_init_guess == false 
+        x .=@. 0.0 
+      end
+      return
+    end #if
+
+    mixed = (param.precision_sloppy != param.precision)
+
+    complex_len = Int(length(b) / 2)
+
+    global y   = Vector{Complex{param.precision}}(undef, complex_len)
+    global u   = typeof(y)(undef, length(y))
+    global r   = typeof(y)(undef, length(y))
+    # now allocate sloppy fields
+    global rSloppy = mixed == true ? Vector{Complex{param.precision_sloppy}}(undef, complex_len) : r  
+    global Ar      = typeof(rSloppy)(undef, length(rSloppy))
+    #  iterated sloppy solution vector
+    global xSloppy = typeof(rSloppy)(undef, length(rSloppy))
+
+    b2 = norm2(b)  #Save norm of b
+    r2 = 0.0     #if zero source then we will exit immediately doing no work
+
+    convert_r2c(y, x)
+    convert_r2c(u, b)
+
+    if param.use_init_guess == true
+      #r = b - Ax0 <- real
+      Mat(r, y)
+      r .=@. u - r 
+      r2 = norm2(r)   
+    else 
+      r2 = b2
+      r .= u
+      x .=@. 0.0
+    end
+
+    cpy(rSloppy, r)
+
+    # if invalid residual then convergence is set by iteration count only
+    stop = b2*param.tol*param.tol
+    global step = 0
+
+    println("MR: Initial residual = ", sqrt(r2))
+
+    global converged = false
+
+    while converged == false
+
+      scale = 1.0
+      #set to zero sloppy solution
+      xSloppy .=@. 0.0
+
+      c2    = param.global_reduction == true ? r2 : norm2(r)  # c2 holds the initial r2
+      scale = c2 > 0.0 ? sqrt(c2) : 1.0
+
+      # domain-wise normalization of the initial residual to prevent underflow
+      if (c2 > 0.0)
+	rSloppy ./=@. scale
+	r2 = 1.0 
+      end
+
+      global k = 0
+      println("MR: ", step, " cycle, ",  k, " iterations, r2 = ", r2)
+
+      while (k < param.maxiter && r2 > 0.0)
+        MatSloppy(Ar, rSloppy)
+
+        alpha = cDotProductNormA(Ar, rSloppy)
+	# x += omega*alpha*r, r -= omega*alpha*Ar, r2 = blas::norm2(r)//?
+	caxpyXmaz(param.omega*alpha, rSloppy, xSloppy, Ar)
+	println("MR: ", step ," cycle, ", (k+1)," iterations, <r|A|r> = ", real(alpha), ",  ", imag(alpha))
+	
+        k += 1
+      end #while k < param.maxiter && r2 > 0.0
+
+      # Scale and sum to accumulator
+      y .=@. y + scale*xSloppy 
+
+      step += 1 
+
+      if (param.compute_true_res == true || param.Nsteps > 1) 
+        Mat(r, y)
+
+        r .=@. u - r 
+        r2 = norm2(r)
+
+        param.true_res = sqrt(r2 / b2)
+
+        converged = (step < param.Nsteps && r2 > stop) ? false : true
+
+        if (param.preserve_source == false && converged == true) 
+          convert_c2r(b, r)
+        else 
+          cpy(rSloppy, r)
+        end 
+
+        println("MR: ", step ," cycle, Converged after ", param.maxiter , "  iterations, relative residual: true = ", sqrt(r2))
+
+      else 
+        rSloppy .*= scale
+
+        r2 = norm2(rSloppy)
+
+        converged = (step < param.Nsteps) ? false : true
+
+        if (param.preserve_source == false && converged == true) 
+          convert_c2r(b, rSloppy)
+        else 
+          cpy(r, rSloppy)
+        end
+
+        println("MR: ", step ," cycle, Converged after ", param.maxiter , "  iterations, relative residual: true = ", sqrt(r2))      
+
+      end #if (param.compute_true_res == true || param.Nsteps > 1) 
+
+    end #while converged == false
+end #MR
+
+end #QJuliaMR
+
+
+
+
+
+
+

@@ -1,0 +1,13 @@
+profile	0.9.1	v0.9.0-717-g64c90a27-dirty-debug-sm_61	cpu_arch=x86_64,gpu_arch=sm_61,cuda_version=9020	# Last updated Fri Nov  9 11:45:00 2018
+
+  total time	  percentage	       calls	 time / call	          volume	name	aux	comment
+  0.00853723	     20.4837	         111	  7.6912e-05	      8x16x16x32	N4quda16WilsonDslashCudaI6short4S1_EE	policy,comm=0000,reconstruct=12,Xpay,topo=1111	# 1165.66 Gflop/s, 521.48 GB/s, tuning took 0.005461 seconds at Fri Nov  9 10:27:12 2018
+  0.00824206	     19.7755	         111	 7.42528e-05	      8x16x16x32	N4quda16WilsonDslashCudaI6short4S1_EE	policy,comm=0000,reconstruct=12,Xpay,dagger,topo=1111	# 1207.41 Gflop/s, 540.16 GB/s, tuning took 0.006695 seconds at Fri Nov  9 10:27:12 2018
+  0.00735619	       17.65	         111	  6.6272e-05	      8x16x16x32	N4quda16WilsonDslashCudaI6short4S1_EE	policy,comm=0000,reconstruct=12,topo=1111	# 1305.34 Gflop/s, 605.20 GB/s, tuning took 0.005344 seconds at Fri Nov  9 10:27:12 2018
+  0.00712815	     17.1029	         111	 6.42176e-05	      8x16x16x32	N4quda16WilsonDslashCudaI6short4S1_EE	policy,comm=0000,reconstruct=12,dagger,topo=1111	# 1347.10 Gflop/s, 624.56 GB/s, tuning took 0.005005 seconds at Fri Nov  9 10:27:12 2018
+  0.00302449	     7.25678	           8	 0.000378061	      8x16x16x32	N4quda16WilsonDslashCudaI7double2S1_EE	policy,comm=0000,reconstruct=12,Xpay,topo=1111	# 237.14 Gflop/s, 399.39 GB/s, tuning took 0.028799 seconds at Fri Nov  9 10:24:59 2018
+  0.00265001	     6.35828	           7	 0.000378573	      8x16x16x32	N4quda16WilsonDslashCudaI7double2S1_EE	policy,comm=0000,reconstruct=12,Xpay,dagger,topo=1111	# 236.82 Gflop/s, 398.85 GB/s, tuning took 0.028128 seconds at Fri Nov  9 10:24:59 2018
+  0.00253707	     6.08729	           7	 0.000362438	      8x16x16x32	N4quda16WilsonDslashCudaI7double2S1_EE	policy,comm=0000,reconstruct=12,dagger,topo=1111	# 238.68 Gflop/s, 416.61 GB/s, tuning took 0.026986 seconds at Fri Nov  9 10:24:59 2018
+  0.00220291	     5.28554	           6	 0.000367152	      8x16x16x32	N4quda16WilsonDslashCudaI7double2S1_EE	policy,comm=0000,reconstruct=12,topo=1111	# 235.62 Gflop/s, 411.26 GB/s, tuning took 0.027617 seconds at Fri Nov  9 10:24:56 2018
+
+# Total time spent in asynchronous execution = 0.0416781 seconds
