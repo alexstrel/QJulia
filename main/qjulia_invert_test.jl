@@ -3,6 +3,7 @@ push!(LOAD_PATH, ENV["QJULIA_HOME"])
 push!(LOAD_PATH, string(ENV["QJULIA_HOME"],"/quda-routines"))
 
 import QJuliaBlas
+import QJuliaReduce
 import QJuliaUtils
 import QJuliaEnums
 import QJuliaInterface
@@ -13,12 +14,11 @@ import QUDARoutines
 
 using Random
 using LinearAlgebra
+using MPI
 
 #create function/type alias
-m256d   = QJuliaBlas.m256d
-m256    = QJuliaBlas.m256
 double  = Float64
-float   = m256
+float   = Float32
 
 convert_c2r = QJuliaBlas.convert_c2r
 
@@ -28,7 +28,7 @@ convert_c2r = QJuliaBlas.convert_c2r
 QJuliaUtils.get_rank_order("col")
 
 #initialize MPI
-QJuliaComms.MPI_init_qj(0, C_NULL)
+MPI.Init()
 
 QUDARoutines.initCommsGridQuda_qj(length(QJuliaUtils.gridsize_from_cmdline), QJuliaUtils.gridsize_from_cmdline, QJuliaUtils.lex_rank_from_coords_t_c, C_NULL)
 
@@ -144,6 +144,7 @@ pre_solv_param.tol       = 1e-2
 #
 pre_solv_param.maxiter   = precond_param.maxiter
 pre_solv_param.Nsteps    = 1
+pre_solv_param.global_reduction = false
 
 K(out, inp) = QJuliaSolvers.solve(out, inp, matvecPre, matvecPre, pre_solv_param)
 #K(out, inp) = QUDARoutines.invertQuda_qj(out, inp, precond_param)
@@ -206,4 +207,5 @@ end
 
 
 QUDARoutines.endQuda_qj()
+MPI.Finalize()
 

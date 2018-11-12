@@ -10,6 +10,7 @@ import QJuliaComms
 import QUDARoutines
 
 using Random
+using MPI
 
 ##############################################################################################
 
@@ -17,7 +18,7 @@ using Random
 QJuliaUtils.get_rank_order("col")
 
 #initialize MPI
-QJuliaComms.MPI_init_qj(0, C_NULL)
+MPI.Init()
 
 QUDARoutines.initCommsGridQuda_qj(length(QJuliaUtils.gridsize_from_cmdline), QJuliaUtils.gridsize_from_cmdline, QJuliaUtils.lex_rank_from_coords_t_c, C_NULL)
 
@@ -112,3 +113,4 @@ println("Kappa = ",  inv_param.kappa)
 
 QUDARoutines.endQuda_qj()
 
+MPI.Finalize()

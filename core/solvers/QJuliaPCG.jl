@@ -3,24 +3,20 @@ module QJuliaPCG
 using QJuliaInterface
 using QJuliaEnums
 using QJuliaBlas
+using QJuliaReduce
 using QJuliaSolvers
 
 using LinearAlgebra
 using Printf
 
-norm2 = QJuliaBlas.gnorm2
+norm2    = QJuliaReduce.gnorm2
+axpyZpbx = QJuliaBlas.axpyZpbx
+rdot     = QJuliaReduce.reDotProduct
 
-@inline function axpyZpbx(a, p::Vector{T}, x::Vector{T}, u::Vector{T}, b)  where T <: AbstractFloat 
-
-Threads.@threads for i in 1:length(x)
-                    x[i] = x[i]+a*p[i] 
-                    p[i] = u[i]+b*p[i] 
-                 end
-end #axpyZpbx
 
 function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, param::QJuliaSolvers.QJuliaSolverParam_qj, K::Function) 
 
-    println("Running MR solver in maximum " , param.Nsteps, "steps.")
+    println("Running PCG solver.")
 
     if (param.maxiter == 0)  
       if param.use_init_guess == false 
@@ -68,7 +64,7 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
     global converged = false
 
-    global ru = dot(rSloppy, u)
+    global ru = rdot(rSloppy, u)
     global ru_old = 0.0
 
     global k = 0
@@ -77,7 +73,7 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
 @time      MatSloppy(s, p)
       #
-@time      alpha = ru / dot(s, p)
+@time      alpha = ru / rdot(s, p)
       # update the residual
 @time      rSloppy .=@. rSloppy - alpha*s
       # 
@@ -87,7 +83,7 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
       # compute precond residual 
 @time      K(u, rSloppy)
 
-           ru    = dot(rSloppy, u)  
+           ru    = rdot(rSloppy, u)  
 
            beta  = (ru - r_newu_old) / ru_old
 
