@@ -1,5 +1,6 @@
 module QJuliaReduce
 
+import QJuliaRegisters
 import QJuliaIntrinsics
 
 using MPI
@@ -16,14 +17,14 @@ end
 
 #create function/type alias
 #SSE
-m128d   = QJuliaIntrinsics.m128d
-m128    = QJuliaIntrinsics.m128
+m128d   = QJuliaRegisters.m128d
+m128    = QJuliaRegisters.m128
 #AVX/AVX2
-m256d   = QJuliaIntrinsics.m256d
-m256    = QJuliaIntrinsics.m256
+m256d   = QJuliaRegisters.m256d
+m256    = QJuliaRegisters.m256
 #AVX3
-m512d   = QJuliaIntrinsics.m512d
-m512    = QJuliaIntrinsics.m512
+m512d   = QJuliaRegisters.m512d
+m512    = QJuliaRegisters.m512
 
 mm_mul  = QJuliaIntrinsics.mm_mul
 mm_add  = QJuliaIntrinsics.mm_add
@@ -112,15 +113,23 @@ end #cDotProductNormX
 
 @inline function reDotProduct(x::Vector{T}, y::Vector{T})  where T <: AbstractFloat 
                  global res = 0.0 
+
                  for i in 1:length(x); res += x[i]*y[i]; end
 
-                 if (blas_global_reduction == true)
-                   val = MPI.Allreduce(res, MPI.SUM, MPI.COMM_WORLD)
-                 else
-                   val = res
+                 return (blas_global_reduction == true ?  MPI.Allreduce(res, MPI.SUM, MPI.COMM_WORLD) : res)
+end #reDotProduct
+
+@inline function cDotProduct(x::Vector{T}, y::Vector{T})  where T <: AbstractFloat 
+                 global res = 0.0+0.0*im 
+
+                 complex_len = Int(length(x) / 2)
+                 for i in 1:complex_len
+                    conjcx    = x[2i-1]-x[2i]*im 
+                    cy        = y[2i-1]+y[2i]*im 
+                    res      += (conjcx * cy)
                  end
 
-                 return val 
+                 return (blas_global_reduction == true ?  MPI.Allreduce(res, MPI.SUM, MPI.COMM_WORLD) : res)
 end #reDotProduct
 
 

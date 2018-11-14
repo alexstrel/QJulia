@@ -40,13 +40,13 @@ module QJuliaSolvers
     use_init_guess::Bool       
 
     # The precision used by the QJULIA solver
-    precision::DataType               
+    dtype::DataType               
     # The precision used by the QJULIA sloppy operator
-    precision_sloppy::DataType        
+    dtype_sloppy::DataType        
     # The precision of the sloppy gauge field for the refinement step in multishift
-    precision_refinement_sloppy::DataType
+    dtype_refinement_sloppy::DataType
     # The precision used by the QJULIA preconditioner
-    precision_precondition::DataType
+    dtype_precondition::DataType
 
     # Relaxation parameter used in MR,GCR etc. (default = 1.0)
     omega::Float64
@@ -80,6 +80,8 @@ module QJuliaSolvers
 
   include("solvers/QJuliaMR.jl")
   include("solvers/QJuliaPCG.jl")
+  include("solvers/QJuliaPipePCG.jl")
+  include("solvers/QJuliaCGPCG.jl")
 
   function solve(out::AbstractArray, inp::AbstractArray, m::Any, mSloppy::Any, param::QJuliaSolverParam_qj, K::Function = identity_op)
 
@@ -87,6 +89,8 @@ module QJuliaSolvers
       QJuliaMR.solver(out, inp, m,mSloppy, param)
     elseif param.inv_type == QJuliaEnums.QJULIA_PCG_INVERTER
       QJuliaPCG.solver(out, inp, m,mSloppy, param, K)
+    elseif param.inv_type == QJuliaEnums.QJULIA_PIPEPCG_INVERTER
+      QJuliaCGPCG.solver(out, inp, m,mSloppy, param, K)
     else 
       println("Solver ", param.inv_type," is not available.")
     end 

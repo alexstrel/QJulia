@@ -1,14 +1,17 @@
 module QJuliaIntrinsics
 
-#SSE vector regs
-const m128  = NTuple{4, VecElement{Float32}}
-const m128d = NTuple{2, VecElement{Float64}}
-#AVX/AVX2 vector regs
-const m256  = NTuple{8, VecElement{Float32}}
-const m256d = NTuple{4, VecElement{Float64}}
-#AVX3 vector regs
-const m512  = NTuple{16, VecElement{Float32}}
-const m512d = NTuple{8 , VecElement{Float64}}
+import QJuliaRegisters
+
+#create function/type alias
+#SSE
+m128d   = QJuliaRegisters.m128d
+m128    = QJuliaRegisters.m128
+#AVX/AVX2
+m256d   = QJuliaRegisters.m256d
+m256    = QJuliaRegisters.m256
+#AVX3
+m512d   = QJuliaRegisters.m512d
+m512    = QJuliaRegisters.m512
 
 @inline function mm_mul(x::T, y::T) where T <:AbstractFloat
    return x * y

@@ -113,7 +113,7 @@ inv_param.cuda_prec = QJuliaEnums.QJULIA_DOUBLE_PRECISION
 inv_param.cuda_prec_sloppy = QJuliaEnums.QJULIA_SINGLE_PRECISION
 inv_param.cuda_prec_precondition = QJuliaEnums.QJULIA_HALF_PRECISION
 inv_param.solution_type = QJuliaEnums.QJULIA_MATPC_SOLUTION 
-inv_param.inv_type = QJuliaEnums.QJULIA_PCG_INVERTER
+inv_param.inv_type = QJuliaEnums.QJULIA_PIPEPCG_INVERTER
 
 println("Kappa = ",  inv_param.kappa)
 

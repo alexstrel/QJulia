@@ -25,11 +25,11 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
       return
     end #if param.maxiter == 0
 
-    mixed = (param.precision_sloppy != param.precision)
+    mixed = (param.dtype_sloppy != param.dtype)
 
-    global r   = Vector{param.precision_sloppy}(undef, length(x))
+    global r   = Vector{param.dtype_sloppy}(undef, length(x))
     # now allocate sloppy fields
-    global rSloppy = mixed == true ? Vector{param.precision_sloppy}(undef, length(b)) : r  
+    global rSloppy = mixed == true ? Vector{param.dtype_sloppy}(undef, length(b)) : r  
     global p       = typeof(rSloppy)(undef, length(rSloppy))
     global s       = typeof(rSloppy)(undef, length(rSloppy))
     global u       = typeof(rSloppy)(undef, length(rSloppy))
@@ -88,8 +88,6 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
            beta  = (ru - r_newu_old) / ru_old
 
       # update solution and conjugate vector
-      #xSloppy .=@. xSloppy + alpha*p  
-      #p       .=@. u + beta*p
 @time      axpyZpbx(alpha, p, xSloppy, u, beta)
 
            converged = (ru > stop) ? false : true

@@ -34,11 +34,11 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
       return
     end #if
 
-    mixed = (param.precision_sloppy != param.precision)
+    mixed = (param.dtype_sloppy != param.dtype)
 
-    global r   = Vector{param.precision}(undef, length(b))
+    global r   = Vector{param.dtype}(undef, length(b))
     # now allocate sloppy fields
-    global rSloppy = mixed == true ? Vector{param.precision_sloppy}(undef, length(b)) : r  
+    global rSloppy = mixed == true ? Vector{param.dtype_sloppy}(undef, length(b)) : r  
     global Ar      = typeof(rSloppy)(undef, length(rSloppy))
     #  iterated sloppy solution vector
     global xSloppy = typeof(rSloppy)(undef, length(rSloppy))

@@ -1,8 +1,7 @@
 module QJuliaBlas
 
+import QJuliaRegisters
 import QJuliaIntrinsics
-
-using MPI
 
 @inline function qjulia_blas_info()
   println("Experimental: executing blas routines in ", Threads.nthreads(), " threads.")
@@ -10,14 +9,14 @@ end
 
 #create function/type alias
 #SSE
-m128d   = QJuliaIntrinsics.m128d
-m128    = QJuliaIntrinsics.m128
+m128d   = QJuliaRegisters.m128d
+m128    = QJuliaRegisters.m128
 #AVX/AVX2
-m256d   = QJuliaIntrinsics.m256d
-m256    = QJuliaIntrinsics.m256
+m256d   = QJuliaRegisters.m256d
+m256    = QJuliaRegisters.m256
 #AVX3
-m512d   = QJuliaIntrinsics.m512d
-m512    = QJuliaIntrinsics.m512
+m512d   = QJuliaRegisters.m512d
+m512    = QJuliaRegisters.m512
 
 mm_mul  = QJuliaIntrinsics.mm_mul
 mm_add  = QJuliaIntrinsics.mm_add
