@@ -107,7 +107,7 @@ mass = -0.9
 
 inv_param.mass = mass
 inv_param.kappa = 1.0 / (2.0 * (1 + 3/gauge_param.anisotropy + mass))
-inv_param.maxiter = 500
+inv_param.maxiter = 100
 
 inv_param.cuda_prec = QJuliaEnums.QJULIA_DOUBLE_PRECISION
 inv_param.cuda_prec_sloppy = QJuliaEnums.QJULIA_SINGLE_PRECISION
@@ -125,14 +125,15 @@ dslash_eo(out, inp) = QUDARoutines.dslashQuda_qj(out, inp, inv_param, QJuliaEnum
 precond_param = QJuliaInterface.QJuliaInvertParam_qj()
 
 precond_param.residual_type            = QJuliaEnums.QJULIA_L2_RELATIVE_RESIDUAL
-precond_param.inv_type                 = QJuliaEnums.QJULIA_MR_INVERTER
+precond_param.inv_type                 = QJuliaEnums.QJULIA_PCG_INVERTER
+#precond_param.inv_type                 = QJuliaEnums.QJULIA_MR_INVERTER #wroks for naive and fails for pipelined
 precond_param.dslash_type_precondition = QJuliaEnums.QJULIA_WILSON_DSLASH
 precond_param.kappa                    = 1.0 / (2.0 * (1 + 3/gauge_param.anisotropy + mass))
 precond_param.cuda_prec                = QJuliaEnums.QJULIA_DOUBLE_PRECISION
 precond_param.cuda_prec_sloppy         = QJuliaEnums.QJULIA_SINGLE_PRECISION
 precond_param.cuda_prec_precondition   = QJuliaEnums.QJULIA_DOUBLE_PRECISION
 precond_param.solution_type            = QJuliaEnums.QJULIA_MATPC_SOLUTION 
-precond_param.maxiter                  = 6
+precond_param.maxiter                  = precond_param.inv_type == QJuliaEnums.QJULIA_PCG_INVERTER ? 30 : 6
 precond_param.Nsteps    	       = 1
 
 matvecPre(out, inp)  = QUDARoutines.MatDagMatQuda_qj(out, inp, precond_param)
@@ -184,11 +185,12 @@ println("Initial source norm sqrt: ", sqrt(x_odd2), " ,source norm ", x_odd2, " 
 
 solv_param = QJuliaSolvers.QJuliaSolverParam_qj()
 # Set up parameters
-solv_param.inv_type  = inv_param.inv_type
-solv_param.tol       = inv_param.tol
+solv_param.inv_type               = inv_param.inv_type
+solv_param.inv_type_precondition  = precond_param.inv_type
+solv_param.tol                    = inv_param.tol
 #
-solv_param.maxiter   = inv_param.maxiter
-solv_param.Nsteps    = 2
+solv_param.maxiter                = inv_param.maxiter
+solv_param.Nsteps                 = 2
 
 QJuliaSolvers.solve(x_even, x_odd, matvec, matvec, solv_param, K)
 

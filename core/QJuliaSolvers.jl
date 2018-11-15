@@ -1,9 +1,11 @@
 module QJuliaSolvers
 
   import QJuliaEnums
+  import QJuliaBlas
 
   function identity_op(out::AbstractArray, inp::AbstractArray)
-    out .=@. inp
+#    out .=@. inp
+     QJuliaBlas.gcpy(out, inp)
   end
 
 
@@ -85,12 +87,18 @@ module QJuliaSolvers
 
   function solve(out::AbstractArray, inp::AbstractArray, m::Any, mSloppy::Any, param::QJuliaSolverParam_qj, K::Function = identity_op)
 
+    if((K != identity_op) && (param.inv_type_precondition == QJuliaEnums.QJULIA_INVALID_INVERTER))
+      printfln("Preconditioner is not specified..")
+      out .=@. inp
+    end
+
     if param.inv_type == QJuliaEnums.QJULIA_MR_INVERTER
       QJuliaMR.solver(out, inp, m,mSloppy, param)
     elseif param.inv_type == QJuliaEnums.QJULIA_PCG_INVERTER
       QJuliaPCG.solver(out, inp, m,mSloppy, param, K)
     elseif param.inv_type == QJuliaEnums.QJULIA_PIPEPCG_INVERTER
-      QJuliaCGPCG.solver(out, inp, m,mSloppy, param, K)
+      #QJuliaCGPCG.solver(out, inp, m,mSloppy, param, K)
+      QJuliaPipePCG.solver(out, inp, m,mSloppy, param, K)
     else 
       println("Solver ", param.inv_type," is not available.")
     end 

@@ -1,4 +1,4 @@
-module QJuliaCGPCG
+module QJuliaPipePCG
 
 using QJuliaInterface
 using QJuliaEnums
@@ -16,7 +16,7 @@ rdot     = QJuliaReduce.reDotProduct
 
 function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, param::QJuliaSolvers.QJuliaSolverParam_qj, K::Function) 
 
-    println("Running Chronopoulos Gear PCG solver.")
+    println("Running PCG solver.")
 
     if (param.maxiter == 0)  
       if param.use_init_guess == false 
@@ -40,6 +40,12 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
     global u       = typeof(r)(undef, length(r))
     global w       = typeof(r)(undef, length(r))
 
+    global q       = typeof(r)(undef, length(r))
+    global z       = typeof(r)(undef, length(r))
+
+    global m       = typeof(r)(undef, length(r))
+    global n       = typeof(r)(undef, length(r))
+
     b2 = norm2(b)  #Save norm of b
     global r2 = 0.0     #if zero source then we will exit immediately doing no work
 
@@ -61,23 +67,29 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
     # if invalid residual then convergence is set by iteration count only
     stop = b2*param.tol*param.tol
 
-    println("CGPCG: Initial residual = ", sqrt(r2))
+    println("PipePCG: Initial residual = ", sqrt(r2))
 
     global converged = false
 
     global k = 0
 
     global gamma_old = 0.0
+    global gamma_new_old = 0.0
     global alpha_old = 0.0
 
-    global case = 2
     while (k < param.maxiter && converged == false)
 
       gamma     = rdot(r,u)
-      delta     = rdot(u,w) 
+      delta     = rdot(u,w)
+
+      #K(m,w)
+      n .=@. w - r 
+      K(m, n)
+      m .=@. u + m 
+      Mat(n, m)  
 
       if k > 0    
-        beta  = gamma / gamma_old
+        beta  = (gamma - gamma_new_old) / gamma_old
         alpha = gamma / (delta-(beta*gamma)/alpha_old)
       else
         beta  = 0.0
@@ -86,18 +98,23 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
       gamma_old = gamma
       alpha_old = alpha
 
+      z .=@. n + beta*z
+      q .=@. m + beta*q
+
       p .=@. u + beta*p
       s .=@. w + beta*s
 
       x .=@. x + alpha*p
       r .=@. r - alpha*s
 
-      K(u, r)
-      Mat(w, u)      
+      gamma_new_old = rdot(r, u)
+
+      u .=@. u - alpha*q
+      w .=@. w - alpha*z
 
       converged = (gamma > stop) ? false : true
 
-      @printf("CGPCG: %d iteration, iter residual: %le \n", k, sqrt(gamma))
+      @printf("PipePCG: %d iteration, iter residual sq.: %le \n", k, gamma)
 
       k += 1
     end #while
@@ -109,18 +126,12 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
       r2 = norm2(r)
 
       param.true_res = sqrt(r2 / b2)
-      println("CGPCG: converged after ", k , "  iterations, relative residual: true = ", sqrt(r2))
+      println("PipePCG: converged after ", k , "  iterations, relative residual: true = ", sqrt(r2))
 
     end #if (param.compute_true_res == true) 
 
 end #solver
 
-
-end #QJuliaCGPCG
-
-
-
-
-
+end #QJuliaPipePCG
 
 
