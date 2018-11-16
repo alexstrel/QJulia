@@ -20,8 +20,6 @@ using MPI
 double  = Float64
 float   = Float32
 
-convert_c2r = QJuliaBlas.convert_c2r
-
 ##############################################################################################
 
 [QJuliaUtils.gridsize_from_cmdline[i] = 1 for i = 1:length(QJuliaUtils.gridsize_from_cmdline)]
@@ -52,8 +50,8 @@ const gsize = 9
 const splen = vol*ssize
 const gflen = vol*gsize
 
-const sp_complex_len = 2*vol*ssize
-const sp_complex_parity_len = Int(sp_complex_len / 2)
+const sp_real_len = 2*vol*ssize
+const sp_real_parity_len = Int(sp_real_len / 2)
 
 sp_in = Vector{Complex{Float64}}(undef, splen)
 sp_ou = Vector{Complex{Float64}}(undef, splen)
@@ -113,7 +111,8 @@ inv_param.cuda_prec = QJuliaEnums.QJULIA_DOUBLE_PRECISION
 inv_param.cuda_prec_sloppy = QJuliaEnums.QJULIA_SINGLE_PRECISION
 inv_param.cuda_prec_precondition = QJuliaEnums.QJULIA_HALF_PRECISION
 inv_param.solution_type = QJuliaEnums.QJULIA_MATPC_SOLUTION 
-inv_param.inv_type = QJuliaEnums.QJULIA_PIPEPCG_INVERTER
+#inv_param.inv_type = QJuliaEnums.QJULIA_PIPEPCG_INVERTER
+inv_param.inv_type = QJuliaEnums.QJULIA_PCG_INVERTER
 
 println("Kappa = ",  inv_param.kappa)
 
@@ -125,8 +124,8 @@ dslash_eo(out, inp) = QUDARoutines.dslashQuda_qj(out, inp, inv_param, QJuliaEnum
 precond_param = QJuliaInterface.QJuliaInvertParam_qj()
 
 precond_param.residual_type            = QJuliaEnums.QJULIA_L2_RELATIVE_RESIDUAL
-precond_param.inv_type                 = QJuliaEnums.QJULIA_PCG_INVERTER
-#precond_param.inv_type                 = QJuliaEnums.QJULIA_MR_INVERTER #wroks for naive and fails for pipelined
+#precond_param.inv_type                 = QJuliaEnums.QJULIA_PCG_INVERTER
+precond_param.inv_type                 = QJuliaEnums.QJULIA_MR_INVERTER #wroks for naive and fails for pipelined
 precond_param.dslash_type_precondition = QJuliaEnums.QJULIA_WILSON_DSLASH
 precond_param.kappa                    = 1.0 / (2.0 * (1 + 3/gauge_param.anisotropy + mass))
 precond_param.cuda_prec                = QJuliaEnums.QJULIA_DOUBLE_PRECISION
@@ -150,26 +149,20 @@ pre_solv_param.global_reduction = false
 K(out, inp) = QJuliaSolvers.solve(out, inp, matvecPre, matvecPre, pre_solv_param)
 #K(out, inp) = QUDARoutines.invertQuda_qj(out, inp, precond_param)
 
-x   = Vector{double}(undef, sp_complex_len)
-tmp = typeof(x)(undef, length(x))
-b   = typeof(x)(undef, length(x))
+x_even = view(reinterpret(double, sp_ou), 1:sp_real_parity_len)
+x_odd  = view(reinterpret(double, sp_ou), sp_real_parity_len+1:sp_real_len)
 
-r   = Vector{double}(undef, sp_complex_parity_len)
+b_even = view(reinterpret(double, sp_in), 1:sp_real_parity_len)
+b_odd  = view(reinterpret(double, sp_in), sp_real_parity_len+1:sp_real_len)
 
-x_even = view(x, 1:sp_complex_parity_len)
-x_odd  = view(x, sp_complex_parity_len+1:sp_complex_len)
+#Auxiliary field
+tmp = Vector{double}(undef, sp_real_len)
 
-b_even = view(b, 1:sp_complex_parity_len)
-b_odd  = view(b, sp_complex_parity_len+1:sp_complex_len)
-
-t_even = view(tmp, 1:sp_complex_parity_len)
-t_odd  = view(tmp, sp_complex_parity_len+1:sp_complex_len)
-
-convert_c2r(b, sp_in)
+t_even = view(tmp, 1:sp_real_parity_len)
+t_odd  = view(tmp, sp_real_parity_len+1:sp_real_len)
 
 #random intial guess
 #QJuliaUtils.gen_random_spinor!(sp_ou, splen)
-convert_c2r(x, sp_ou)
 
 #prepare source/solution:
 if inv_param.matpc_type == QJuliaEnums.QJULIA_MATPC_EVEN_EVEN
@@ -195,12 +188,13 @@ solv_param.Nsteps                 = 2
 QJuliaSolvers.solve(x_even, x_odd, matvec, matvec, solv_param, K)
 
 #compute true residual:
+r = t_odd
 matvec(r, x_even)
 r  .=@. x_odd - r
 r2 = dot(r, r) 
 println("True residual sqrt: ", sqrt(r2))
 
-#prepare source/solution:
+#reconstruct source/solution:
 if inv_param.matpc_type == QJuliaEnums.QJULIA_MATPC_EVEN_EVEN
 # x_o = b_o + k D_oe x_e
 dslash_oe(t_odd, x_even)

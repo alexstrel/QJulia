@@ -51,7 +51,7 @@ end #mm_dot
 
 @inline function gnorm2(x::Vector{T})  where T <: AbstractFloat 
                  global res = 0.0 
-                 for i in 1:length(x); res += x[i] * x[i]; end
+                 for e in x; res += e*e; end
 
                  if (blas_global_reduction == true)
                    val = MPI.Allreduce(res, MPI.SUM, MPI.COMM_WORLD)
@@ -63,8 +63,8 @@ end #mm_dot
 end #gnorm2
 
 @inline function gnorm2(x::Vector{Complex{T}})  where T <: AbstractFloat 
-                 global res = 0.0 
-                 for i in 1:length(x); res += (real(x[i]) * real(x[i]) + imag(x[i]) * imag(x[i])); end
+                 local res = 0.0 
+                 for e in x; res += abs2(e); end
 
                  if (blas_global_reduction == true)
                    val = MPI.Allreduce(res, MPI.SUM, MPI.COMM_WORLD)
@@ -76,7 +76,7 @@ end #gnorm2
 end #gnorm2
 
 @inline function gnorm2(x::AbstractArray)  
-                 global res = 0.0 
+                 local res = 0.0 
                  for i in 1:length(x); res += abs2(x[i]); end
 
                  if (blas_global_reduction == true)
@@ -89,13 +89,15 @@ end #gnorm2
 end #gnorm2
 
 @inline function cDotProductNormX(x::Vector{T}, y::Vector{T})  where T <: AbstractFloat 
-                 global cres = 0.0+0.0im 
-                 global rres = 0.0 
-                 complex_len = Int(length(x) / 2)
-                 for i in 1:complex_len
-                    conjcx    = x[2i-1]-x[2i]*im 
-                    cy        = y[2i-1]+y[2i]*im 
-                    cres += (conjcx * cy)
+                 local cres = 0.0+0.0im 
+                 local rres = 0.0
+
+                 cx = view(reinterpret(Complex{T}, x), :) 
+                 cy = view(reinterpret(Complex{T}, y), :)
+
+                 for i in 1:length(cx)
+                    conjcx    = conj(cx[i])
+                    cres += (conjcx * cy[i])
                     rres += abs2(conjcx)
                  end
 
@@ -112,7 +114,7 @@ end #gnorm2
 end #cDotProductNormX
 
 @inline function reDotProduct(x::Vector{T}, y::Vector{T})  where T <: AbstractFloat 
-                 global res = 0.0 
+                 local res = 0.0 
 
                  for i in 1:length(x); res += x[i]*y[i]; end
 
@@ -120,14 +122,12 @@ end #cDotProductNormX
 end #reDotProduct
 
 @inline function cDotProduct(x::Vector{T}, y::Vector{T})  where T <: AbstractFloat 
-                 global res = 0.0+0.0*im 
+                 local res = 0.0+0.0im 
 
-                 complex_len = Int(length(x) / 2)
-                 for i in 1:complex_len
-                    conjcx    = x[2i-1]-x[2i]*im 
-                    cy        = y[2i-1]+y[2i]*im 
-                    res      += (conjcx * cy)
-                 end
+                 cx = view(reinterpret(Complex{T}, x), :) 
+                 cy = view(reinterpret(Complex{T}, y), :)
+
+                 for i in 1:length(cx); res += conj(cx[i]) * cy[i]; end
 
                  return (blas_global_reduction == true ?  MPI.Allreduce(res, MPI.SUM, MPI.COMM_WORLD) : res)
 end #reDotProduct
