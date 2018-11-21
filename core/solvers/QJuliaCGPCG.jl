@@ -27,11 +27,7 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
     mixed = (param.dtype_sloppy != param.dtype)
 
-    if mixed == true
-      println("Mixed types is not supported.")
-      x .=@. b
-      return
-    end
+    if mixed == true; error("Mixed types is not supported."); end
 
     global r   = Vector{param.dtype_sloppy}(undef, length(x))
     # now allocate sloppy fields

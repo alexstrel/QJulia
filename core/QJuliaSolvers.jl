@@ -88,8 +88,7 @@ module QJuliaSolvers
   function solve(out::AbstractArray, inp::AbstractArray, m::Any, mSloppy::Any, param::QJuliaSolverParam_qj, K::Function = identity_op)
 
     if((K != identity_op) && (param.inv_type_precondition == QJuliaEnums.QJULIA_INVALID_INVERTER))
-      printfln("Preconditioner is not specified..")
-      out .=@. inp
+      error("Preconditioner is not specified..")
     end
 
     if param.inv_type == QJuliaEnums.QJULIA_MR_INVERTER
@@ -100,7 +99,7 @@ module QJuliaSolvers
       #QJuliaCGPCG.solver(out, inp, m,mSloppy, param, K)
       QJuliaPipePCG.solver(out, inp, m,mSloppy, param, K)
     else 
-      println("Solver ", param.inv_type," is not available.")
+      error("Solver ", param.inv_type," is not available.")
     end 
 
   end

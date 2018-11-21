@@ -21,11 +21,7 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
     QJuliaReduce.set_blas_global_reduction(param.global_reduction)
 
-    if (MPI.Initialized() == false)
-      println("MPI was not inititalized, copy source field to the solution.")
-      x .=@. b
-      return;
-    end
+    if MPI.Initialized() == false; error("MPI was not inititalized, copy source field to the solution."); end
 
     if (param.maxiter == 0) || (param.Nsteps == 0) 
       if param.use_init_guess == false 
