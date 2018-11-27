@@ -168,6 +168,8 @@ mutable struct QJuliaLatticeField_qj{T<:Any, NSpin<:Any, NColor<:Any, NBlock<:An
      if fdesc.geom != QJuliaEnums.QJULIA_SCALAR_GEOMETRY 
        if (NSpin  != 0); error("Spin dof is not allowed for this type of the field"); end
        if (NBlock != 1); error("Block is not supported for this type of the field");  end
+     else
+       if (NSpin  == 0); error("NSpin = 0 is not allowed for ", fdesc.geom, ". Check the field descriptor."); end
      end
 
      # Check NColor:
@@ -188,7 +190,21 @@ mutable struct QJuliaLatticeField_qj{T<:Any, NSpin<:Any, NColor<:Any, NBlock<:An
 
 end #QJuliaLatticeField_qj
 
-function general_field_info(field::QJuliaGenericField_qj)
+CreateBlockColorSpinor(fdesc::QJuliaLatticeFieldDescr_qj, T::Any, NSpin::Int, NColor::Int, NBlock::Int) = QJuliaLatticeField_qj{T, NSpin, NColor, NBlock}(fdesc)
+
+# Specialized constructors and helper methods
+
+# Pure single color spinor field
+QJuliaLatticeField_qj{T, NSpin, NColor}(fdesc::QJuliaLatticeFieldDescr_qj) where T where NSpin where NColor =  QJuliaLatticeField_qj{T, NSpin, NColor, 1}(fdesc::QJuliaLatticeFieldDescr_qj)
+#
+CreateColorSpinor(fdesc::QJuliaLatticeFieldDescr_qj, T::Any, NSpin::Int, NColor::Int) = QJuliaLatticeField_qj{T, NSpin, NColor}(fdesc)
+
+# Gauge field 
+QJuliaLatticeField_qj{T, NColor}(fdesc::QJuliaLatticeFieldDescr_qj) where T where NColor                    =  QJuliaLatticeField_qj{T, 0, NColor, 1}(fdesc::QJuliaLatticeFieldDescr_qj)
+#
+CreateGaugeField(fdesc::QJuliaLatticeFieldDescr_qj, T::Any, NColor::Int) = QJuliaLatticeField_qj{T, NColor}(fdesc)
+
+function field_info(field::QJuliaGenericField_qj)
 
   field_desc = field.field_desc
   println(" ")
@@ -217,10 +233,18 @@ end
 
   println(typeof(test_spinor_field_desc))
 
-  test_spinor_field = QJuliaLatticeField_qj{m256d, 4, 3, 1}(test_spinor_field_desc)
+  test_spinor_field = CreateColorSpinor(test_spinor_field_desc, m256d, 4, 3)
 
-  general_field_info(test_spinor_field)
- 
+  field_info(test_spinor_field)
+
+  test_gauge_field_desc = QJuliaLatticeFieldDescr_qj{m256d}(QJuliaEnums.QJULIA_VECTOR_GEOMETRY, QJuliaEnums.QJULIA_INVALID_PARITY, false, 0, (8,8,8,8))
+
+  test_gauge_field = CreateGaugeField(test_gauge_field_desc, m256d, 3)  
+
+  field_info(test_gauge_field)
+
+  println("Test types: ", (typeof(test_spinor_field) == typeof(test_gauge_field))) 
+
 # END DO TEST
 end #QJuliaFields
 
