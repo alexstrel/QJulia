@@ -1,7 +1,7 @@
 module QJuliaFields
 
 #load path to qjulia home directory
-push!(LOAD_PATH, ENV["QJULIA_HOME"])
+push!(LOAD_PATH, string(ENV["QJULIA_HOME"],"/core"))
 
 import QJuliaRegisters
 import QJuliaEnums
@@ -19,12 +19,13 @@ m512    = QJuliaRegisters.m512
 
 const QJULIA_MAX_DIMS = 6
 
-mutable struct QJuliaLatticeField_qj
+#QJuliaLatticeFieldDesc_qj
+mutable struct QJuliaLatticeFieldDescr_qj{T<:Any}
   # Field precision (Float16/32/64)
   prec::DataType 
 
   # Field geometry (spinor, vector, tensor etc.)
-  fgeom::QJuliaEnums.QJuliaFieldGeometry_qj
+  geom::QJuliaEnums.QJuliaFieldGeometry_qj
 
   # Number of field dimensions
   nDim::Int
@@ -48,10 +49,10 @@ mutable struct QJuliaLatticeField_qj
   # Field checkerboarded volume
   volumeCB::Int
 
-  # Field volume after simdization
+  # Field volume after simdization and padding
   real_volume::Int
 
-  # Field checkerboarded volume after simdization
+  # Field checkerboarded volume after simdization and padding
   real_volumeCB::Int
 
   # The number of dimensions we partition for communication 
@@ -63,13 +64,84 @@ mutable struct QJuliaLatticeField_qj
   # Parity type
   parity::QJuliaEnums.QJuliaParity_qj
 
-  #defualt constructor (remarkable: no need to indicate enum name!)
-  QJuliaLatticeField_qj() = new(Float64, QJuliaEnums.QJULIA_INVALID_GEOMETRY, 4,
+  # Field location
+  location::QJuliaEnums.QJuliaFieldLocation_qj
+
+  # Defualt constructor 
+  QJuliaLatticeFieldDescr_qj{T}() where {T<:Any} = new(Float64, QJuliaEnums.QJULIA_INVALID_GEOMETRY, 4,
                                 NTuple{QJULIA_MAX_DIMS, Int}(ntuple(i->1, QJULIA_MAX_DIMS)),
-                                NTuple{4, Int}(ntuple(i->1, 4)),
+                                NTuple{4, Int}(ntuple(i->0, 4)),
                                 NTuple{4, Int}(ntuple(i->1, 4)),
                                 1, 1, 1, 1, 0, 2,
-				QJuliaEnums.QJULIA_INVALID_PARITY)
+				QJuliaEnums.QJULIA_INVALID_PARITY,
+				QJuliaEnums.QJULIA_CPU_FIELD_LOCATION) 
+
+
+  function QJuliaLatticeFieldDescr_qj{T}(geom::QJuliaEnums.QJuliaFieldGeometry_qj, parity::QJuliaEnums.QJuliaParity_qj, is_quda_grid::Bool, ndimscomm::Int, X::NTuple{4,Int64}) where T
+     # Check lattice dimensions
+     if sizeof(X) > (sizeof(Int)*QJULIA_MAX_DIMS); error("Requested lattice dimensions are not supported"); end
+     # Set lattice dimensions
+     nDims = length(X)
+     #
+     xx = NTuple{QJULIA_MAX_DIMS, Int}(ntuple(i->(i<=length(X) ? X[i] : 1), QJULIA_MAX_DIMS))
+     #
+     simd_scale = 0
+     #
+     if(is_quda_grid == true && T !=  m128d && T !=  m128 && T !=  m256d && T !=  m256 && T !=  m512d && T !=  m512)
+       d=(X[1], X[2], X[3], X[4]) #higher dims are not supported
+     elseif(T == Complex{Float32} || T == Complex{Float64} || T == Complex{BigFloat} || T == m128d)
+       d=(1, 1, 1, 1) 
+     elseif(T == m128 || T ==  m256d)
+       d=(1, 1, 1, 2)
+       simd_scale = 1
+     elseif(T == m256 || T ==  m512d)
+       d=(1, 1, 2, 2)
+       simd_scale = 2
+     elseif(T == m512)
+       d=(1, 2, 2, 2)
+       simd_scale = 3
+     else
+       error("Requested data type ", T , " is not supported")
+     end
+
+     # Set up padding
+     pad = NTuple{4, Int}(ntuple(i->0, 4))
+
+     # Set field precision
+     if (T == Complex{Float64} || T == m128d || T == m256d || T == m512d )
+       prec = Float64
+     elseif (T == Complex{BigFloat})
+       prec = BigFloat
+     elseif (T == Complex{Float16})
+       prec = Float16
+     else
+       prec = Float32
+     end
+
+     # Set field volume:
+     volume = 1
+     [volume *= i for i in X]
+
+     # Set cb volume:
+     volumeCB =  volume >> 1
+
+     # Set field real volume
+     real_volume = volume >> simd_scale
+
+     # Set cb real volume
+     real_volumeCB = volumeCB >> simd_scale
+
+     # Set parity flags
+     siteSubset = parity == QJuliaEnums.QJULIA_INVALID_PARITY ? 2 : 1
+
+     # Set location
+     location = is_quda_grid == true ? QJuliaEnums.QJULIA_CUDA_FIELD_LOCATION : QJuliaEnums.QJULIA_CPU_FIELD_LOCATION 
+
+     # call constructor
+     new(prec, geom, nDims, xx, pad, d, volume, volumeCB, real_volume, real_volumeCB, ndimscomm, siteSubset, parity, location)
+
+  end #QJuliaLatticeFieldDescr_qj constructor
+
 
 end
 
@@ -78,170 +150,46 @@ abstract type QJuliaGenericField_qj end
 # Suppoerted field types: Complex{Float16}, Complex{Float32}, Complex{Float64}, Complex{BigFloat}, m128(d), m256(d), m512(d)
 # Format: mySpinorFiled = QJuliaColorSpinorField_qj{Type} (nSpin, nColor, ...)
 
-mutable struct QJuliaColorSpinorField_qj{T<:Any} <: QJuliaGenericField_qj
+mutable struct QJuliaLatticeField_qj{T<:Any, NSpin<:Any, NColors<:Any, NBlock<:Any} <: QJuliaGenericField_qj
   # Lattice field structure
-  field_desc::QJuliaLatticeField_qj
+  field_desc::QJuliaLatticeFieldDescr_qj{T}
 
-  # Spin 
+  # Spin dof
   nSpin::Int
 
-  # Color
+  # Color dof
   nColor::Int
 
-  # Field array:
-  v::Vector{T}
-
-  function QJuliaColorSpinorField_qj{T}(nspin::Int, ncolor::Int, parity::QJuliaEnums.QJuliaParity_qj, is_quda_grid::Bool, ndimscomm::Int, X::NTuple{4,Int64}) where T
-     # Setup lattice parameters
-     field_desc = QJuliaLatticeField_qj()
-     # Set field geometry
-     field_desc.fgeom = QJuliaEnums.QJULIA_SCALAR_GEOMETRY
-     # Check lattice dimensions
-     if sizeof(X) > (sizeof(Int)*QJULIA_MAX_DIMS); error("Requested lattice dimensions are not supported"); end
-     # Set lattice dimensions
-     field_desc.nDim = length(X)
-     #
-     field_desc.X = NTuple{QJULIA_MAX_DIMS, Int}(ntuple(i->(i<=length(X) ? X[i] : 1), QJULIA_MAX_DIMS))
-     #
-     simd_scale = 0
-     #
-     if(is_quda_grid == true && T !=  m128d && T !=  m128 && T !=  m256d && T !=  m256 && T !=  m512d && T !=  m512)
-       field_desc.D=(X[1], X[2], X[3], X[4]) #higher dims are not supported
-     elseif(T == Complex{Float32} || T == Complex{Float64} || T == Complex{BigFloat} || T == m128d)
-       field_desc.D=(1, 1, 1, 1) 
-     elseif(T == m128 || T ==  m256d)
-       field_desc.D=(1, 1, 1, 2)
-       simd_scale = 1
-     elseif(T == m256 || T ==  m512d)
-       field_desc.D=(1, 1, 2, 2)
-       simd_scale = 2
-     elseif(T == m512)
-       field_desc.D=(1, 2, 2, 2)
-       simd_scale = 3
-     else
-       error("Requested data type ", T , " is not supported")
-     end
-
-     # Set field precision
-     if (T == Complex{Float64} || T == m128d || T == m256d || T == m512d )
-       field_desc.prec = Float64
-     elseif (T == Complex{BigFloat})
-       field_desc.prec = BigFloat
-     elseif (T == Complex{Float16})
-       field_desc.prec = Float16
-     else
-       field_desc.prec = Float32
-     end
-
-     # Set field volume:
-     field_desc.volume = 1
-     [field_desc.volume *= i for i in X]
-
-     # Set cb volume:
-     field_desc.volumeCB =  (field_desc.volume >> 1)
-
-     # Set field real volume
-     field_desc.real_volume = field_desc.volume >> simd_scale
-
-     # Set cb real volume
-     field_desc.real_volumeCB = field_desc.volumeCB >> simd_scale
-
-     # Set parity flags
-     field_desc.siteSubset = parity == QJuliaEnums.QJULIA_INVALID_PARITY ? 2 : 1
-
-     # Parity type:
-     field_desc.parity = parity 
-
-     # Set the field array
-     v = Vector{T}(undef, field_desc.siteSubset*nspin*ncolor*field_desc.real_volumeCB) 
-
-     # call constructor
-     new(field_desc, nspin, ncolor, v)
-
-  end #QJuliaColorSpinorField_qj constructor
-
-end #QJuliaColorSpinorField_qj
-
-
-
-mutable struct QJuliaGaugeField_qj{T<:Any} <: QJuliaGenericField_qj
-  # Lattice field structure
-  field_desc::QJuliaLatticeField_qj
-  # Color
-  nColor::Int
-  # Field array:
+  # Field array(s), e.g., single color spinor, block color spinor (eigenvector set), SU(N) field etc.:
   v::Matrix{T}
 
-  function QJuliaGaugeField_qj{T}(ncolor::Int, parity::QJuliaEnums.QJuliaParity_qj, is_quda_grid::Bool, ndimscomm::Int, X::NTuple{4,Int64}) where T
-     # Setup lattice parameters
-     field_desc = QJuliaLatticeField_qj()
-     # Set field geometry
-     field_desc.fgeom = QJuliaEnums.QJULIA_VECTOR_GEOMETRY
-     # Check lattice dimensions
-     if sizeof(X) > (sizeof(Int)*QJULIA_MAX_DIMS); error("Requested lattice dimensions are not supported"); end
-     # Set lattice dimensions
-     field_desc.nDim = length(X)
-     #
-     field_desc.X = NTuple{QJULIA_MAX_DIMS, Int}(ntuple(i->(i<=length(X) ? X[i] : 1), QJULIA_MAX_DIMS))
-     #
-     simd_scale = 0
-     #
-     if(is_quda_grid == true && T !=  m128d && T !=  m128 && T !=  m256d && T !=  m256 && T !=  m512d && T !=  m512)
-       field_desc.D=(X[1], X[2], X[3], X[4]) #higher dims are not supported
-     elseif(T == Complex{Float32} || T == Complex{Float64} || T == Complex{BigFloat} || T == m128d)
-       field_desc.D=(1, 1, 1, 1) 
-     elseif(T == m128 || T ==  m256d)
-       field_desc.D=(1, 1, 1, 2)
-       simd_scale = 1
-     elseif(T == m256 || T ==  m512d)
-       field_desc.D=(1, 1, 2, 2)
-       simd_scale = 2
-     elseif(T == m512)
-       field_desc.D=(1, 2, 2, 2)
-       simd_scale = 3
-     else
-       error("Requested data type ", T , " is not supported")
+  function QJuliaLatticeField_qj{T,NSpin,NColor,NBlock}(fdesc::QJuliaLatticeFieldDescr_qj) where T where NSpin where NColor where NBlock
+     # Check spin dof:
+     if typeof(NSpin) != UInt64; error("NSpin parameter is incorrect, must be UInt64."); end  
+
+     if fdesc.geom != QJuliaEnums.QJULIA_SCALAR_GEOMETRY 
+       if (NSpin != 0); error("Spin dof is not allowed for this type of the field"); end
+       if (NBlock != 1); error("Block is not supported for this type of the field"); end
      end
 
-     # Set field precision
-     if (T == Complex{Float64} || T == m128d || T == m256d || T == m512d )
-       field_desc.prec = Float64
-     elseif (T == Complex{BigFloat})
-       field_desc.prec = BigFloat
-     elseif (T == Complex{Float16})
-       field_desc.prec = Float16
-     else
-       field_desc.prec = Float32
-     end
+     # Check NColor:
+     if ((typeof(NColor) != UInt64) || (NColor == 0)) ; error("NColor parameter is incorrect, must be of type UInt64 and non-zero."); end  
 
-     # Set field volume:
-     field_desc.volume = 1
-     [field_desc.volume *= i for i in X]
+     # Check NBlock:
+     if ((typeof(NBlock) != UInt64) || (NColor == 0)) ; error("NBlock parameter is incorrect, must be of type UInt64 and non-zero."); end  
 
-     # Set cb volume:
-     field_desc.volumeCB =  (field_desc.volume >> 1)
+     # Set the field array total elements:
+     tot_elems = fdesc.siteSubset*(fdesc.geom == QJuliaEnums.QJULIA_SCALAR_GEOMETRY ? NSpin : 1)*NColor*fdesc.real_volumeCB
 
-     # Set field real volume
-     field_desc.real_volume = field_desc.volume >> simd_scale
-
-     # Set cb real volume
-     field_desc.real_volumeCB = field_desc.volumeCB >> simd_scale
-
-     # Set parity flags
-     field_desc.siteSubset = parity == QJuliaEnums.QJULIA_INVALID_PARITY ? 2 : 1
-
-     # Parity type:
-     field_desc.parity = parity 
-
-     # Set the field array
-     v = Matrix{T}(undef, field_desc.siteSubset*ncolor*field_desc.real_volumeCB, 4) 
+     v = Matrix{T}(undef, tot_elems, Int(fdesc.geom)*NBlock) 
 
      # call constructor
-     new(field_desc, ncolor, v)
+     new(fdesc, NSpin, NColor, v)
 
-  end #QJuliaGaugeField_qj constructor
+  end #QJuliaLatticeField_qj constructor
 
-end #QJuliaGaugeField_qj
+end #QJuliaLatticeField_qj
+
 
 function general_field_info(field::QJuliaGenericField_qj)
 
@@ -250,7 +198,10 @@ function general_field_info(field::QJuliaGenericField_qj)
   println("General field info for ", typeof(field), ": ")
   println("Size of ", typeof(field_desc), " : ", sizeof(field_desc) )
   println("Precision : ", field_desc.prec )
-  println("Field geometry : ", field_desc.fgeom ) 
+  println("Field geometry : ", field_desc.geom )
+  if( field_desc.geom == QJuliaEnums.QJULIA_SCALAR_GEOMETRY ); println("NSpin : ", field.nSpin )  ; end
+  println("NColor : ", field.nColor )  
+  if( field_desc.geom == QJuliaEnums.QJULIA_SCALAR_GEOMETRY ); println("NBlock : ", size(field.v)[2] )  ; end
   print("Field dimensions : ", field_desc.nDim, ", ("); [ if i != 1;print(i, ", ");end for i in field_desc.X]; println(")")
   println("Register type : ", typeof(field.v[1]))
   println("Volume : ", field_desc.volume)
@@ -263,17 +214,15 @@ function general_field_info(field::QJuliaGenericField_qj)
 
 end
 
-nColors(field::QJuliaGenericField_qj)   = println("NColor : ", field.nColor)
-nSpin(field::QJuliaColorSpinorField_qj) = println("NSpin : ", field.nSpin)
-
 # DO TEST
-  my_spinor_field = QJuliaColorSpinorField_qj{m256d}(4, 3, QJuliaEnums.QJULIA_INVALID_PARITY, false, 0, (8,8,8,8))
 
-  general_field_info(my_spinor_field)
+  test_spinor_field_desc = QJuliaLatticeFieldDescr_qj{m256d}(QJuliaEnums.QJULIA_SCALAR_GEOMETRY, QJuliaEnums.QJULIA_INVALID_PARITY, false, 0, (8,8,8,8))
 
-  my_gauge_field = QJuliaGaugeField_qj{m256d}(3, QJuliaEnums.QJULIA_INVALID_PARITY, false, 0, (8,8,8,8))
+  println(typeof(test_spinor_field_desc))
 
-  general_field_info(my_gauge_field)
+  test_spinor_field = QJuliaLatticeField_qj{m256d, UInt64(4), UInt64(3), UInt64(1)}(test_spinor_field_desc)
+
+  general_field_info(test_spinor_field)
  
 # END DO TEST
 end #QJuliaFields

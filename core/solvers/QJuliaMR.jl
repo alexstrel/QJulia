@@ -13,7 +13,7 @@ norm2            = QJuliaReduce.gnorm2
 cDotProductNormX = QJuliaReduce.cDotProductNormX
 caxpyXmaz        = QJuliaBlas.caxpyXmaz
 
-verbose             = false
+verbose             = true
 
 function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, param::QJuliaSolvers.QJuliaSolverParam_qj) 
 
@@ -32,12 +32,12 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
     mixed = (param.dtype_sloppy != param.dtype)
 
-    global r   = Vector{param.dtype}(undef, length(b))
+    local r   = Vector{param.dtype}(undef, length(b))
     # now allocate sloppy fields
-    global rSloppy = mixed == true ? Vector{param.dtype_sloppy}(undef, length(b)) : r  
-    global Ar      = typeof(rSloppy)(undef, length(rSloppy))
+    local rSloppy = mixed == true ? Vector{param.dtype_sloppy}(undef, length(b)) : r  
+    local Ar      = typeof(rSloppy)(undef, length(rSloppy))
     #  iterated sloppy solution vector
-    global xSloppy = typeof(rSloppy)(undef, length(rSloppy))
+    local xSloppy = typeof(rSloppy)(undef, length(rSloppy))
 
     b2 = norm2(b)  #Save norm of b
     r2 = 0.0     #if zero source then we will exit immediately doing no work
@@ -57,11 +57,11 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
     # if invalid residual then convergence is set by iteration count only
     stop = b2*param.tol*param.tol
-    global step = 0
+    local step = 0
 
     println("MR: Initial residual = ", sqrt(r2))
 
-    global converged = false
+    local converged = false
 
     while converged == false
 
@@ -78,7 +78,7 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 	r2 = 1.0 
       end
 
-      global k = 0
+      local k = 0
       println("MR: ", step, " cycle, ",  k, " iterations, r2 = ", r2)
 
       while (k < param.maxiter && r2 > 0.0)
@@ -114,7 +114,7 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
           rSloppy .=@. r
         end 
 
-        println("MR: ", step ," cycle, Converged after ", param.maxiter , "  iterations, relative residual: true = ", sqrt(r2))
+        println("MR: ", step ," cycle, Converged after ", k , "  iterations, relative residual: true = ", sqrt(r2))
 
       else 
         rSloppy .*= scale
@@ -129,7 +129,7 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
           r .=@. rSloppy
         end
 
-        println("MR: ", step ," cycle, Converged after ", param.maxiter , "  iterations, relative residual: true = ", sqrt(r2))      
+        println("MR: ", step ," cycle, Converged after ", k , "  iterations, relative residual: true = ", sqrt(r2))      
 
       end #if (param.compute_true_res == true || param.Nsteps > 1) 
 

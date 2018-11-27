@@ -29,15 +29,15 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
     if mixed == true; error("Mixed types is not supported."); end
 
-    global r   = Vector{param.dtype_sloppy}(undef, length(x))
+    local r   = Vector{param.dtype_sloppy}(undef, length(x))
     # now allocate sloppy fields
-    global p       = typeof(r)(undef, length(r))
-    global s       = typeof(r)(undef, length(r))
-    global u       = typeof(r)(undef, length(r))
-    global w       = typeof(r)(undef, length(r))
+    local p       = typeof(r)(undef, length(r))
+    local s       = typeof(r)(undef, length(r))
+    local u       = typeof(r)(undef, length(r))
+    local w       = typeof(r)(undef, length(r))
 
     b2 = norm2(b)  #Save norm of b
-    global r2 = 0.0     #if zero source then we will exit immediately doing no work
+    local r2 = 0.0     #if zero source then we will exit immediately doing no work
 
     if param.use_init_guess == true
       #r = b - Ax0 <- real
@@ -59,14 +59,14 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
     println("CGPCG: Initial residual = ", sqrt(r2))
 
-    global converged = false
+    local converged = false
 
-    global k = 0
+    local k = 0
 
-    global gamma_old = 0.0
-    global alpha_old = 0.0
+    local gamma_old = 0.0
+    local alpha_old = 0.0
 
-    global case = 2
+    local case = 2
     while (k < param.maxiter && converged == false)
 
       gamma     = rdot(r,u)

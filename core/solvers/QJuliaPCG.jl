@@ -12,6 +12,7 @@ using Printf
 norm2    = QJuliaReduce.gnorm2
 axpyZpbx = QJuliaBlas.axpyZpbx
 rdot     = QJuliaReduce.reDotProduct
+cpy      = QJuliaBlas.gcpy
 
 
 function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, param::QJuliaSolvers.QJuliaSolverParam_qj, K::Function) 
@@ -31,18 +32,21 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
     mixed = (param.dtype_sloppy != param.dtype)
 
-    global r   = Vector{param.dtype_sloppy}(undef, length(x))
+    local r   = Vector{param.dtype_sloppy}(undef, length(x))
     # now allocate sloppy fields
-    global rSloppy = mixed == true ? Vector{param.dtype_sloppy}(undef, length(b)) : r  
-    global p       = typeof(rSloppy)(undef, length(rSloppy))
-    global s       = typeof(rSloppy)(undef, length(rSloppy))
-#    global u       = is_preconditioned == true ? typeof(rSloppy)(undef, length(rSloppy)) : rSloppy
-    global u       = typeof(rSloppy)(undef, length(rSloppy))
+    local rSloppy = mixed == true ? Vector{param.dtype_sloppy}(undef, length(b)) : r  
+    local p       = typeof(rSloppy)(undef, length(rSloppy))
+    local s       = typeof(rSloppy)(undef, length(rSloppy))
+#    local u       = is_preconditioned == true ? typeof(rSloppy)(undef, length(rSloppy)) : rSloppy
+    local u       = typeof(rSloppy)(undef, length(rSloppy))
     #  iterated sloppy solution vector
-    global xSloppy = typeof(rSloppy)(undef, length(rSloppy))
+    local xSloppy = typeof(rSloppy)(undef, length(rSloppy))
+
+    local rPre    = param.dtype_precondition != param.dtype_sloppy ? Vector{param.dtype_precondition}(undef, length(x)) : rSloppy
+    local pPre    = param.dtype_precondition != param.dtype_sloppy ? Vector{param.dtype_precondition}(undef, length(x)) : u
 
     b2 = norm2(b)  #Save norm of b
-    global r2 = 0.0     #if zero source then we will exit immediately doing no work
+    local r2 = 0.0     #if zero source then we will exit immediately doing no work
 
     if param.use_init_guess == true
       #r = b - Ax0 <- real
@@ -57,7 +61,10 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
     rSloppy .=@. r
 
-    K(u, rSloppy) #noop for the alias reference
+    cpy(rPre, rSloppy) #noop for the alias refs
+    K(pPre, rPre)      #noop for the alias reference
+    cpy(u, pPre)       #noop for the alias refs
+
     p  .=@. u
 
     xSloppy .=@. 0.0
@@ -67,12 +74,12 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
     println(solver_name," : Initial residual = ", sqrt(r2))
 
-    global converged = false
+    local converged = false
 
-    global ru = rdot(rSloppy, u)
-    global ru_old = 0.0
+    local ru = rdot(rSloppy, u)
+    local ru_old = 0.0
 
-    global k = 0
+    local k = 0
 
 @time    while (k < param.maxiter && converged == false)
 
@@ -86,7 +93,9 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
       #
       r_newu_old = rdot(rSloppy, u)
       # compute precond residual 
-      K(u, rSloppy)
+      cpy(rPre, rSloppy) #noop for the alias refs
+      K(pPre, rPre)      #noop for the alias reference
+      cpy(u, pPre)       #noop for the alias refs
 
       ru    = rdot(rSloppy, u)  
 
