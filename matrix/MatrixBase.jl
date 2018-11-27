@@ -38,11 +38,7 @@ mutable struct CSRMat{T<:Any} <: GenericCSRMat
 
   function CSRMat{T}(path::String) where T
 
-    if(T == ComplexF16 || T == ComplexF32 || T == ComplexF64)
-      is_complex = true
-    else
-      is_complex = false
-    end
+    is_complex = (T == ComplexF16 || T == ComplexF32 || T == ComplexF64)
 
     M = MatrixMarket.mmread(path)
 
@@ -92,9 +88,7 @@ mutable struct CSRMat{T<:Any} <: GenericCSRMat
       csrRows[j+1] = csrRows[j] + row_nnz
     end #for j
 
-    csrRows[nrows+1] -= 1 #to remove initial bias
-
-    if csrRows[nrows+1] != nnz; error("Conversion failed, incorrect number of nnz detected."); end
+    if csrRows[nrows+1] != nnz+1; error("Conversion failed, incorrect number of nnz detected."); end
 
     # call constructor
     new(is_complex, (nrows, ncols), (rows, cols), csrVals, csrRows, csrCols, view(diagIdx, 1:(d-1)))
@@ -107,7 +101,7 @@ end #CSRMat
 function print_CSRMat_info(m::GenericCSRMat)
   println(" ")
   println("General info for ", typeof(m), ": ")
-  println("Element type : ", typeof(m.csrVals[1]),", number of nnz : ", m.csrRows[m.Dims[1]+1], ", number of rows : ", m.Dims[1], ", number of cols : ", m.Dims[2])
+  println("Element type : ", typeof(m.csrVals[1]),", number of nnz : ", (m.csrRows[m.Dims[1]+1] - 1) , ", number of rows : ", m.Dims[1], ", number of cols : ", m.Dims[2])
 end
 
 function csrmv(b::AbstractArray, m::GenericCSRMat, x::AbstractArray) 

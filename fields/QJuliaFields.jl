@@ -142,15 +142,11 @@ mutable struct QJuliaLatticeFieldDescr_qj{T<:Any}
 
   end #QJuliaLatticeFieldDescr_qj constructor
 
-
 end
 
 abstract type QJuliaGenericField_qj end
 
-# Suppoerted field types: Complex{Float16}, Complex{Float32}, Complex{Float64}, Complex{BigFloat}, m128(d), m256(d), m512(d)
-# Format: mySpinorFiled = QJuliaColorSpinorField_qj{Type} (nSpin, nColor, ...)
-
-mutable struct QJuliaLatticeField_qj{T<:Any, NSpin<:Any, NColors<:Any, NBlock<:Any} <: QJuliaGenericField_qj
+mutable struct QJuliaLatticeField_qj{T<:Any, NSpin<:Any, NColor<:Any, NBlock<:Any} <: QJuliaGenericField_qj
   # Lattice field structure
   field_desc::QJuliaLatticeFieldDescr_qj{T}
 
@@ -165,18 +161,20 @@ mutable struct QJuliaLatticeField_qj{T<:Any, NSpin<:Any, NColors<:Any, NBlock<:A
 
   function QJuliaLatticeField_qj{T,NSpin,NColor,NBlock}(fdesc::QJuliaLatticeFieldDescr_qj) where T where NSpin where NColor where NBlock
      # Check spin dof:
-     if typeof(NSpin) != UInt64; error("NSpin parameter is incorrect, must be UInt64."); end  
+     if (NSpin != 0 && NSpin != 1 && NSpin != 2 && NSpin != 4)
+	error("NSpin parameter is incorrect, must be 0 (gauge field), 1 (fine staggered), 2 (coarse spinor) or 4 (fine spinor) ")
+     end  
 
      if fdesc.geom != QJuliaEnums.QJULIA_SCALAR_GEOMETRY 
-       if (NSpin != 0); error("Spin dof is not allowed for this type of the field"); end
-       if (NBlock != 1); error("Block is not supported for this type of the field"); end
+       if (NSpin  != 0); error("Spin dof is not allowed for this type of the field"); end
+       if (NBlock != 1); error("Block is not supported for this type of the field");  end
      end
 
      # Check NColor:
-     if ((typeof(NColor) != UInt64) || (NColor == 0)) ; error("NColor parameter is incorrect, must be of type UInt64 and non-zero."); end  
+     if (NColor < 1) ; error("NColor parameter is incorrect, must be non-zero."); end  
 
      # Check NBlock:
-     if ((typeof(NBlock) != UInt64) || (NColor == 0)) ; error("NBlock parameter is incorrect, must be of type UInt64 and non-zero."); end  
+     if (NBlock < 1) ; error("NBlock parameter is incorrect, must be non-zero."); end  
 
      # Set the field array total elements:
      tot_elems = fdesc.siteSubset*(fdesc.geom == QJuliaEnums.QJULIA_SCALAR_GEOMETRY ? NSpin : 1)*NColor*fdesc.real_volumeCB
@@ -189,7 +187,6 @@ mutable struct QJuliaLatticeField_qj{T<:Any, NSpin<:Any, NColors<:Any, NBlock<:A
   end #QJuliaLatticeField_qj constructor
 
 end #QJuliaLatticeField_qj
-
 
 function general_field_info(field::QJuliaGenericField_qj)
 
@@ -220,7 +217,7 @@ end
 
   println(typeof(test_spinor_field_desc))
 
-  test_spinor_field = QJuliaLatticeField_qj{m256d, UInt64(4), UInt64(3), UInt64(1)}(test_spinor_field_desc)
+  test_spinor_field = QJuliaLatticeField_qj{m256d, 4, 3, 1}(test_spinor_field_desc)
 
   general_field_info(test_spinor_field)
  
