@@ -156,6 +156,9 @@ mutable struct QJuliaLatticeField_qj{T<:Any, NSpin<:Any, NColor<:Any, NBlock<:An
   # Color dof
   nColor::Int
 
+  # Bloclk size 
+  nBlock::Int
+
   # Field Matrix{T}, e.g., single color spinor, block color spinor (eigenvector set), SU(N) field etc.:
   v::Any
 
@@ -184,7 +187,7 @@ mutable struct QJuliaLatticeField_qj{T<:Any, NSpin<:Any, NColor<:Any, NBlock<:An
      v = Matrix{T}(undef, tot_elems, Int(fdesc.geom)*NBlock) 
 
      # call constructor
-     new(fdesc, NSpin, NColor, v)
+     new(fdesc, NSpin, NColor, NBlock, v)
 
   end #QJuliaLatticeField_qj constructor
 
@@ -192,20 +195,24 @@ mutable struct QJuliaLatticeField_qj{T<:Any, NSpin<:Any, NColor<:Any, NBlock<:An
 
      if(field.field_desc.siteSubset == 1); error("Cannot reference a parity field from a parity field"); end
      pfdesc = deepcopy(field.field_desc)
-     pfdesc.parity   = parity
-     pfdesc.volume   = field.field_desc.volumeCB
-     pfdesc.volumeCB = field.field_desc.volumeCB
-     pfdesc.real_volume = field.field_desc.real_volumeCB
-     pfdesc.real_volumeCB = field.field_desc.real_volumeCB
+
      pfdesc.X        = NTuple{QJULIA_MAX_DIMS, Int}(ntuple(i->(i == 1 ? field.field_desc.X[i] >> 1 : field.field_desc.X[i]), QJULIA_MAX_DIMS))
+
+     pfdesc.volume        = field.field_desc.volumeCB
+     pfdesc.volumeCB      = field.field_desc.volumeCB
+     pfdesc.real_volume   = field.field_desc.real_volumeCB
+     pfdesc.real_volumeCB = field.field_desc.real_volumeCB
+
+     pfdesc.parity     = parity
      pfdesc.siteSubset = 1
-     
-     offset = parity == QJuliaEnums.QJULIA_EVEN_PARITY ? 1 : field.field_desc.real_volumeCB*NSpin*NColor*NBlock
-     
 
-     v = view(field.v, offset:offset+field.field_desc.real_volumeCB*NSpin*NColor*NBlock, :)
+     parity_volume = field.field_desc.real_volumeCB*(pfdesc.geom == QJuliaEnums.QJULIA_SCALAR_GEOMETRY ? field.nSpin : 1)*field.nColor    
 
-     new(pfdesc, field.nSpin, field.nColor, v)
+     offset = parity == QJuliaEnums.QJULIA_EVEN_PARITY ? 1 : parity_volume+1
+
+     v = view(field.v, offset:offset+parity_volume-1, :)
+
+     new(pfdesc, field.nSpin, field.nColor, field.nBlock, v)
 
   end
 
@@ -225,17 +232,9 @@ QJuliaLatticeField_qj{T, NColor}(fdesc::QJuliaLatticeFieldDescr_qj) where T wher
 #
 CreateGaugeField(fdesc::QJuliaLatticeFieldDescr_qj, T::Any, NColor::Int) = QJuliaLatticeField_qj{T, NColor}(fdesc)
 
-function Even(field::QJuliaGenericField_qj)
-  fdesc = deepcopy(field.field_desc)
-
-  if(fdesc.siteSubset == 1); error("Cannot get a referecnce to a parity field from the parity field."); end
-
-  fdesc.siteSubset = 1
-
-  println(typeof(fdesc))
-
-end
-
+#Create references to parity fields
+Even(field::QJuliaGenericField_qj) = QJuliaLatticeField_qj{typeof(field.v[1]), field.nSpin, field.nColor, field.nBlock}(field, QJuliaEnums.QJULIA_EVEN_PARITY)
+Odd(field::QJuliaGenericField_qj)  = QJuliaLatticeField_qj{typeof(field.v[1]), field.nSpin, field.nColor, field.nBlock}(field, QJuliaEnums.QJULIA_ODD_PARITY)
 
 function field_info(field::QJuliaGenericField_qj)
 
@@ -247,7 +246,7 @@ function field_info(field::QJuliaGenericField_qj)
   println("Field geometry : ", field_desc.geom )
   if( field_desc.geom == QJuliaEnums.QJULIA_SCALAR_GEOMETRY ); println("NSpin : ", field.nSpin )  ; end
   println("NColor : ", field.nColor )  
-  if( field_desc.geom == QJuliaEnums.QJULIA_SCALAR_GEOMETRY ); println("NBlock : ", size(field.v)[2] )  ; end
+  if( field_desc.geom == QJuliaEnums.QJULIA_SCALAR_GEOMETRY ); println("NBlock : ", field.nBlock )  ; end
   print("Field dimensions : ", field_desc.nDim, ", ("); [ if i != 1;print(i, ", ");end for i in field_desc.X]; println(")")
   println("Register type : ", typeof(field.v[1]))
   println("Volume : ", field_desc.volume)
@@ -278,15 +277,16 @@ end
 
   println("Test types: ", (typeof(test_spinor_field) == typeof(test_gauge_field))) 
 
-  Even(test_gauge_field)
+  test_even_gauge_field = Even(test_gauge_field)
+  field_info(test_even_gauge_field)
 
-  parity_spinor = QJuliaLatticeField_qj{m256d, 4, 3, 1}(test_spinor_field, QJuliaEnums.QJULIA_EVEN_PARITY)
+  test_odd_spinor_field = Odd(test_spinor_field)
 
-  field_info(parity_spinor)
+  field_info(test_odd_spinor_field)
 
-  parity_spinor.v[1] = m256d(ntuple(i->11.2018, 4))
+  test_odd_spinor_field.v[1] = m256d(ntuple(i->11.2018, 4))
 
-  println("  ", test_spinor_field.v[1])
+  println("  ", test_spinor_field.v[1+test_spinor_field.field_desc.real_volumeCB*test_spinor_field.nSpin*test_spinor_field.nColor])
 
 # END DO TEST
 end #QJuliaFields
