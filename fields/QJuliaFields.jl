@@ -156,8 +156,8 @@ mutable struct QJuliaLatticeField_qj{T<:Any, NSpin<:Any, NColor<:Any, NBlock<:An
   # Color dof
   nColor::Int
 
-  # Field array(s), e.g., single color spinor, block color spinor (eigenvector set), SU(N) field etc.:
-  v::Matrix{T}
+  # Field Matrix{T}, e.g., single color spinor, block color spinor (eigenvector set), SU(N) field etc.:
+  v::Any
 
   function QJuliaLatticeField_qj{T,NSpin,NColor,NBlock}(fdesc::QJuliaLatticeFieldDescr_qj) where T where NSpin where NColor where NBlock
      # Check spin dof:
@@ -188,6 +188,27 @@ mutable struct QJuliaLatticeField_qj{T<:Any, NSpin<:Any, NColor<:Any, NBlock<:An
 
   end #QJuliaLatticeField_qj constructor
 
+  function QJuliaLatticeField_qj{T,NSpin,NColor,NBlock}(field::QJuliaLatticeField_qj, parity::QJuliaEnums.QJuliaParity_qj) where T where NSpin where NColor where NBlock
+
+     if(field.field_desc.siteSubset == 1); error("Cannot reference a parity field from a parity field"); end
+     pfdesc = deepcopy(field.field_desc)
+     pfdesc.parity   = parity
+     pfdesc.volume   = field.field_desc.volumeCB
+     pfdesc.volumeCB = field.field_desc.volumeCB
+     pfdesc.real_volume = field.field_desc.real_volumeCB
+     pfdesc.real_volumeCB = field.field_desc.real_volumeCB
+     pfdesc.X        = NTuple{QJULIA_MAX_DIMS, Int}(ntuple(i->(i == 1 ? field.field_desc.X[i] >> 1 : field.field_desc.X[i]), QJULIA_MAX_DIMS))
+     pfdesc.siteSubset = 1
+     
+     offset = parity == QJuliaEnums.QJULIA_EVEN_PARITY ? 1 : field.field_desc.real_volumeCB*NSpin*NColor*NBlock
+     
+
+     v = view(field.v, offset:offset+field.field_desc.real_volumeCB*NSpin*NColor*NBlock, :)
+
+     new(pfdesc, field.nSpin, field.nColor, v)
+
+  end
+
 end #QJuliaLatticeField_qj
 
 CreateBlockColorSpinor(fdesc::QJuliaLatticeFieldDescr_qj, T::Any, NSpin::Int, NColor::Int, NBlock::Int) = QJuliaLatticeField_qj{T, NSpin, NColor, NBlock}(fdesc)
@@ -203,6 +224,18 @@ CreateColorSpinor(fdesc::QJuliaLatticeFieldDescr_qj, T::Any, NSpin::Int, NColor:
 QJuliaLatticeField_qj{T, NColor}(fdesc::QJuliaLatticeFieldDescr_qj) where T where NColor                    =  QJuliaLatticeField_qj{T, 0, NColor, 1}(fdesc::QJuliaLatticeFieldDescr_qj)
 #
 CreateGaugeField(fdesc::QJuliaLatticeFieldDescr_qj, T::Any, NColor::Int) = QJuliaLatticeField_qj{T, NColor}(fdesc)
+
+function Even(field::QJuliaGenericField_qj)
+  fdesc = deepcopy(field.field_desc)
+
+  if(fdesc.siteSubset == 1); error("Cannot get a referecnce to a parity field from the parity field."); end
+
+  fdesc.siteSubset = 1
+
+  println(typeof(fdesc))
+
+end
+
 
 function field_info(field::QJuliaGenericField_qj)
 
@@ -244,6 +277,16 @@ end
   field_info(test_gauge_field)
 
   println("Test types: ", (typeof(test_spinor_field) == typeof(test_gauge_field))) 
+
+  Even(test_gauge_field)
+
+  parity_spinor = QJuliaLatticeField_qj{m256d, 4, 3, 1}(test_spinor_field, QJuliaEnums.QJULIA_EVEN_PARITY)
+
+  field_info(parity_spinor)
+
+  parity_spinor.v[1] = m256d(ntuple(i->11.2018, 4))
+
+  println("  ", test_spinor_field.v[1])
 
 # END DO TEST
 end #QJuliaFields
