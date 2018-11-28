@@ -236,6 +236,17 @@ CreateGaugeField(fdesc::QJuliaLatticeFieldDescr_qj, T::Any, NColor::Int) = QJuli
 Even(field::QJuliaGenericField_qj) = QJuliaLatticeField_qj{typeof(field.v[1]), field.nSpin, field.nColor, field.nBlock}(field, QJuliaEnums.QJULIA_EVEN_PARITY)
 Odd(field::QJuliaGenericField_qj)  = QJuliaLatticeField_qj{typeof(field.v[1]), field.nSpin, field.nColor, field.nBlock}(field, QJuliaEnums.QJULIA_ODD_PARITY)
 
+# Pointer helpers:
+@inline function GetParityPtr(field::QJuliaGenericField_qj, parity::QJuliaEnums.QJuliaParity_qj)
+   if(field.field_desc.siteSubset == 1); return field.v; end
+
+   parity_volume = field.field_desc.real_volumeCB*(field.field_desc.geom == QJuliaEnums.QJULIA_SCALAR_GEOMETRY ? field.nSpin : 1)*field.nColor    
+
+   offset = parity == QJuliaEnums.QJULIA_EVEN_PARITY ? 1 : parity_volume+1
+
+   return view(field.v, offset:offset+parity_volume-1, :)
+end
+
 function field_info(field::QJuliaGenericField_qj)
 
   field_desc = field.field_desc
@@ -249,6 +260,9 @@ function field_info(field::QJuliaGenericField_qj)
   if( field_desc.geom == QJuliaEnums.QJULIA_SCALAR_GEOMETRY ); println("NBlock : ", field.nBlock )  ; end
   print("Field dimensions : ", field_desc.nDim, ", ("); [ if i != 1;print(i, ", ");end for i in field_desc.X]; println(")")
   println("Register type : ", typeof(field.v[1]))
+  println("Reference type : ", typeof(field.v))
+  println("Field object pointer: ", pointer_from_objref(field))
+  println("Row data pointer: ", pointer(field.v))
   println("Volume : ", field_desc.volume)
   println("VolumeCB : ", field_desc.volumeCB)
   println("Register elements for volume : ", field_desc.real_volume)
