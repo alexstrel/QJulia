@@ -201,7 +201,7 @@ mutable struct QJuliaLatticeField_qj{NSpin<:Any, NColor<:Any, NBlock<:Any} <: QJ
      if (NBlock < 1) ; error("NBlock parameter is incorrect, must be non-zero."); end  
 
      # Set the field array total elements:
-     tot_elems = fdesc.siteSubset*(fdesc.geom == QJuliaEnums.QJULIA_SCALAR_GEOMETRY ? NSpin : 1)*NColor*fdesc.real_volumeCB
+     tot_elems = fdesc.siteSubset*(fdesc.geom == QJuliaEnums.QJULIA_SCALAR_GEOMETRY ? NSpin : NColor)*NColor*fdesc.real_volumeCB
 
      v = Matrix{fdesc.register_type}(undef, tot_elems, Int(fdesc.geom)*NBlock) 
 
@@ -225,7 +225,7 @@ mutable struct QJuliaLatticeField_qj{NSpin<:Any, NColor<:Any, NBlock<:Any} <: QJ
      pfdesc.parity     = parity
      pfdesc.siteSubset = 1
 
-     parity_volume = field.field_desc.real_volumeCB*(pfdesc.geom == QJuliaEnums.QJULIA_SCALAR_GEOMETRY ? field.nSpin : 1)*field.nColor    
+     parity_volume = field.field_desc.real_volumeCB*(pfdesc.geom == QJuliaEnums.QJULIA_SCALAR_GEOMETRY ? field.nSpin : field.nColor)*field.nColor    
 
      offset = parity == QJuliaEnums.QJULIA_EVEN_PARITY ? 1 : parity_volume+1
 
@@ -259,7 +259,7 @@ Odd(field::QJuliaGenericField_qj)  = QJuliaLatticeField_qj{field.nSpin, field.nC
 @inline function GetParityPtr(field::QJuliaGenericField_qj, parity::QJuliaEnums.QJuliaParity_qj)
    if(field.field_desc.siteSubset == 1); return field.v; end
 
-   parity_volume = field.field_desc.real_volumeCB*(field.field_desc.geom == QJuliaEnums.QJULIA_SCALAR_GEOMETRY ? field.nSpin : 1)*field.nColor    
+   parity_volume = field.field_desc.real_volumeCB*(field.field_desc.geom == QJuliaEnums.QJULIA_SCALAR_GEOMETRY ? field.nSpin : field.nColor)*field.nColor    
 
    offset = parity == QJuliaEnums.QJULIA_EVEN_PARITY ? 1 : parity_volume+1
 

@@ -41,16 +41,30 @@ function get_rank_order(rorder::String)
 end #get_rank_order
 
 @inline function gen_random_spinor!(spin::Vector{Complex{T}}) where T <: AbstractFloat
-  for i in 1:length(spin);  spin[i] = Complex{Float64}(rand(), rand()); end
+  for i in 1:length(spin);  spin[i] = Complex{T}(rand(), rand()); end
 end #gen_random_spinor!
 
 @inline function gen_const_spinor!(spin::Vector{Complex{T}}, rea = 0.0, img = 0.0) where T <: AbstractFloat
-  for i in 1:length(spin);  spin[i] = Complex{Float64}(rea, img); end
+  for i in 1:length(spin);  spin[i] = Complex{T}(rea, img); end
 end #gen_random_spinor!
 
 @inline function print_spinor(spin::Vector{Complex{T}}, len) where T <: AbstractFloat
   for i in 1:len; println("Real = ", real(spin[i]), " Imaginary = ", imag(spin[i])); end
 end #print_spinor
+
+using QJuliaFields
+using QJuliaEnums
+
+@inline function gen_random_spinor!(field::QJuliaFields.QJuliaGenericField_qj) 
+
+  if(field.field_desc.geom != QJuliaEnums.QJULIA_SCALAR_GEOMETRY); error("Cannot apply on fields with non-scalar geometry.");end
+  if(field.field_desc.register_type != ComplexF64 && field.field_desc.register_type != ComplexF32 )
+    error("Register type ", field.field_desc.register_type, " is currently not supported.")
+  end
+
+  for i in LinearIndices(field.v); field.v[i] = field.field_desc.register_type(rand(), rand()); end  
+
+end #gen_random_spinor!
 
 end #QJuliaUtils
 
