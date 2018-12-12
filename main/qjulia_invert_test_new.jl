@@ -174,9 +174,12 @@ solv_param.tol                    = inv_param.tol
 #
 solv_param.maxiter                = inv_param.maxiter
 solv_param.Nsteps                 = 2
-
-sol = view(reinterpret(cs_ou.field_desc.prec, cs_ou.v), 1:2*length(cs_ou.v))
-src = view(reinterpret(cs_in.field_desc.prec, cs_in.v), 1:2*length(cs_in.v))
+#matrix form
+#sol = view(reinterpret(cs_ou.field_desc.prec, cs_ou.v), :, :)
+#src = view(reinterpret(cs_in.field_desc.prec, cs_in.v), :, :)
+#vector form
+sol = view(reinterpret(cs_ou.field_desc.prec, cs_ou.v), :)
+src = view(reinterpret(cs_in.field_desc.prec, cs_in.v), :)
 
 QJuliaSolvers.solve(sol, src, matvec, matvec, solv_param, K)
 
