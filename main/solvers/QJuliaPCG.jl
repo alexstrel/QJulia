@@ -12,7 +12,7 @@ using Printf
 norm2    = QJuliaReduce.gnorm2
 axpyZpbx = QJuliaBlas.axpyZpbx
 rdot     = QJuliaReduce.reDotProduct
-cpy      = QJuliaBlas.gcpy
+cpy      = QJuliaBlas.cpy
 
 
 function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, param::QJuliaSolvers.QJuliaSolverParam_qj, K::Function) 

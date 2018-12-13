@@ -58,44 +58,27 @@ end #convert_r2c
 end #convert_r2c
 
 
-@inline function gcpy(y::AbstractArray, x::AbstractArray) 
+@inline function cpy(y::AbstractArray, x::AbstractArray) 
   if pointer_from_objref(y) == pointer_from_objref(x); return; end
 @threads for i in 1:length(x);  y[i] = x[i]; end
-end #gcpy
+end #cpy
 
 
-@inline function gaxpy(a, x::AbstractArray, y::AbstractArray) 
+@inline function axpy(a, x::AbstractArray, y::AbstractArray) 
 @threads for i in 1:length(x);  y[i] = mm_mad(a, x[i], y[i]); end
-end #gaxpy
+end #axpy
 
-@inline function gxpay(x::AbstractArray, a, y::AbstractArray) 
+@inline function xpay(x::AbstractArray, a, y::AbstractArray) 
 @threads for i in 1:length(x);  y[i] = mm_mad(a, y[i], x[i]); end
-end #gxpay
+end #xpay
 
-@inline function gxmy(x::AbstractArray, y::AbstractArray) 
+@inline function xmy(x::AbstractArray, y::AbstractArray) 
 @threads for i in 1:length(x);  y[i] = mm_sub(x[i], y[i]); end
-end #gxmy
+end #xmy
 
-@inline function gxpy(x::AbstractArray, y::AbstractArray) 
+@inline function xpy(x::AbstractArray, y::AbstractArray) 
 @threads for i in 1:length(x);  y[i] = mm_add(x[i], y[i]); end
-end #gxpy
-
-@inline function crxpy(x::Vector{Complex{T}}, y::Vector{T}) where T <: AbstractFloat 
-@threads for i in 1:length(x);  y[2i-1] = real(x[i]) + y[2i-1]; y[2i] = imag(x[i]) + y[2i]; end
-end #crxpy
-
-#even more generic
-@inline function crxpy(x::Vector{Complex{T}}, y::AbstractArray) where T <: AbstractFloat 
-@threads for i in 1:length(x);  y[2i-1] = real(x[i]) + y[2i-1]; y[2i] = imag(x[i]) + y[2i]; end
-end #crxpy
-
-@inline function rcxpy(x::Vector{T}, y::Vector{Complex{T}}) where T <: AbstractFloat 
-@threads for i in 1:length(y)  
-           re_y = x[2i-1] + real(y[i])
-           im_y = x[2i  ] + imag(y[i])
-           y[i] = re_y + im_y*im
-         end
-end #rcxpy
+end #xpy
 
 #First performs the operation y[i] += a*x[i]
 #Second performs the operator x[i] -= a*z[i]
@@ -122,8 +105,6 @@ end #caxpyXmaz
            p[i] = u[i]+b*p[i] 
          end
 end #axpyZpbx
-
-
 
 end #QJuliaBlas
 

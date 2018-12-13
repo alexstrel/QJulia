@@ -1,7 +1,7 @@
 #load path to qjulia home directory
 push!(LOAD_PATH, string(ENV["QJULIA_HOME"],"/core"))
-push!(LOAD_PATH, string(ENV["QJULIA_HOME"],"/core/quda-routines"))
-push!(LOAD_PATH, string(ENV["QJULIA_HOME"],"/fields"))
+push!(LOAD_PATH, string(ENV["QJULIA_HOME"],"/libs/quda-routines"))
+push!(LOAD_PATH, string(ENV["QJULIA_HOME"],"/main/fields"))
 
 import QJuliaFields
 import QJuliaBlas

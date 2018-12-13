@@ -5,7 +5,7 @@ module QJuliaSolvers
 
   function identity_op(out::AbstractArray, inp::AbstractArray)
 #    out .=@. inp
-     QJuliaBlas.gcpy(out, inp)
+     QJuliaBlas.cpy(out, inp)
   end
 
 
@@ -80,10 +80,10 @@ module QJuliaSolvers
 
   end #QJuliaSolverParam_qj
 
-  include("solvers/QJuliaMR.jl")
-  include("solvers/QJuliaPCG.jl")
-  include("solvers/QJuliaPipePCG.jl")
-  include("solvers/QJuliaCGPCG.jl")
+  include("../main/solvers/QJuliaMR.jl")
+  include("../main/solvers/QJuliaPCG.jl")
+  include("../main/solvers/QJuliaPipePCG.jl")
+  include("../main/solvers/QJuliaCGPCG.jl")
 
   function solve(out::AbstractArray, inp::AbstractArray, m::Any, mSloppy::Any, param::QJuliaSolverParam_qj, K::Function = identity_op)
 

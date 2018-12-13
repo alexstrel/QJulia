@@ -1,6 +1,6 @@
 #load path to qjulia home directory
 push!(LOAD_PATH, string(ENV["QJULIA_HOME"],"/core"))
-push!(LOAD_PATH, string(ENV["QJULIA_HOME"],"/quda-routines"))
+push!(LOAD_PATH, string(ENV["QJULIA_HOME"],"/libs/quda-routines"))
 
 import QJuliaUtils
 import QJuliaEnums
@@ -26,11 +26,11 @@ QUDARoutines.initQuda_qj(0)
 
 Random.seed!(2018)
 
-const lx = Cint(16)
-const ly = Cint(16)
-const lz = Cint(16)
-const lt = Cint(32)
-const ls = Cint(1 )
+const lx = 16
+const ly = 16
+const lz = 16
+const lt = 32
+const ls = 1 
 
 const dim = 4
 const vol = lx*ly*lz*lt*ls
