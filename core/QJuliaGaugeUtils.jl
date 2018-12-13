@@ -190,19 +190,6 @@ function construct_gauge_field!(gauge::Matrix{Complex{T}}, gtype, param::QJuliaI
   end
 end #construct_gauge_field!
 
-using QJuliaFields
-
-function construct_gauge_field!(field::QJuliaFields.QJuliaGenericField_qj, gtype, param::QJuliaInterface.QJuliaGaugeParam_qj)
-
-  if(field.field_desc.geom != QJuliaEnums.QJULIA_VECTOR_GEOMETRY); error("Cannot apply on fields with non-vector geometry.");end
-  if(field.field_desc.register_type != ComplexF64 && field.field_desc.register_type != ComplexF32 )
-    error("Register type ", field.field_desc.register_type, " is currently not supported.")
-  end
-
-  construct_gauge_field!(field.v, gtype, param)
-
-end
-
 end #QJuliaGaugeUtils
 
 

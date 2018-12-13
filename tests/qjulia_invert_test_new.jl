@@ -4,12 +4,13 @@ push!(LOAD_PATH, string(ENV["QJULIA_HOME"],"/libs/quda-routines"))
 push!(LOAD_PATH, string(ENV["QJULIA_HOME"],"/main/fields"))
 
 import QJuliaFields
+import QJuliaFieldUtils
 import QJuliaBlas
 import QJuliaReduce
 import QJuliaUtils
 import QJuliaEnums
 import QJuliaInterface
-import QJuliaGaugeUtils
+#import QJuliaGaugeUtils
 import QJuliaComms
 import QJuliaSolvers
 import QUDARoutines
@@ -47,7 +48,7 @@ spinor_field_desc = QJuliaFields.QJuliaLatticeFieldDescr_qj{ComplexF64}(QJuliaEn
 cs_in = QJuliaFields.CreateColorSpinor(spinor_field_desc, 4)
 cs_ou = QJuliaFields.CreateColorSpinor(spinor_field_desc, 4)
 
-QJuliaUtils.gen_random_spinor!(cs_in)
+QJuliaFieldUtils.gen_random_spinor!(cs_in)
 
 gauge_param = QJuliaInterface.QJuliaGaugeParam_qj()
 gauge_param.X = (lx, ly, lz, lt)
@@ -71,7 +72,7 @@ gauge_param.cuda_prec_refinement_sloppy   = QJuliaEnums.QJULIA_HALF_PRECISION
 gauge_field_desc = QJuliaFields.QJuliaLatticeFieldDescr_qj{ComplexF64}(QJuliaEnums.QJULIA_VECTOR_GEOMETRY, QJuliaEnums.QJULIA_INVALID_PARITY, false, 0, (lx,ly,lz,lt))
 
 gauge_field = QJuliaFields.CreateGaugeField(gauge_field_desc)
-QJuliaGaugeUtils.construct_gauge_field!(gauge_field, 1, gauge_param)
+QJuliaFieldUtils.construct_gauge_field!(gauge_field, 1, gauge_param)
 
 inv_param = QJuliaInterface.QJuliaInvertParam_qj()
 inv_param.residual_type = QJuliaEnums.QJULIA_L2_RELATIVE_RESIDUAL

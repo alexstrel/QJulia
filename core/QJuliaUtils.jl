@@ -52,19 +52,6 @@ end #gen_random_spinor!
   for i in 1:len; println("Real = ", real(spin[i]), " Imaginary = ", imag(spin[i])); end
 end #print_spinor
 
-using QJuliaFields
-using QJuliaEnums
-
-@inline function gen_random_spinor!(field::QJuliaFields.QJuliaGenericField_qj) 
-
-  if(field.field_desc.geom != QJuliaEnums.QJULIA_SCALAR_GEOMETRY); error("Cannot apply on fields with non-scalar geometry.");end
-  if(field.field_desc.register_type != ComplexF64 && field.field_desc.register_type != ComplexF32 )
-    error("Register type ", field.field_desc.register_type, " is currently not supported.")
-  end
-
-  for i in LinearIndices(field.v); field.v[i] = field.field_desc.register_type(rand(), rand()); end  
-
-end #gen_random_spinor!
 
 end #QJuliaUtils
 

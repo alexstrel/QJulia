@@ -1,8 +1,6 @@
-module QJuliaFieldsBlas
+module QJuliaFieldBlas
 
-import QJuliaRegisters
-import QJuliaEnums
-import QJuliaBlas
+using QJuliaFields
 
 #we need to overload basic operators
 #import Base.+
@@ -88,6 +86,6 @@ end #axpyZpbx
          end
 end #axpyZpbx_m
 
-end #QJuliaFieldsBlas
+end #QJuliaFieldBlas
 
 
