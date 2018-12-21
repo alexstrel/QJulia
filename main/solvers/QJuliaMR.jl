@@ -9,9 +9,9 @@ using QJuliaSolvers
 using LinearAlgebra
 using MPI
 
-norm2            = QJuliaReduce.gnorm2
-cDotProductNormX = QJuliaReduce.cDotProductNormX
-caxpyXmaz        = QJuliaBlas.caxpyXmaz
+norm2             = QJuliaReduce.gnorm2
+reDotProductNormX = QJuliaReduce.reDotProductNormX
+axpyXmaz          = QJuliaBlas.axpyXmaz
 
 verbose             = true
 
@@ -57,11 +57,10 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
     # if invalid residual then convergence is set by iteration count only
     stop = b2*param.tol*param.tol
-    local step = 0
 
     println("MR: Initial residual = ", sqrt(r2))
 
-    local converged = false
+    converged = false; step = 0
 
     while converged == false
 
@@ -78,17 +77,17 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 	r2 = 1.0 
       end
 
-      local k = 0
+      k = 0
       println("MR: ", step, " cycle, ",  k, " iterations, r2 = ", r2)
 
       while (k < param.maxiter && r2 > 0.0)
         MatSloppy(Ar, rSloppy)
 
-        alpha = cDotProductNormX(Ar, rSloppy)
+        alpha = reDotProductNormX(Ar, rSloppy)
 	# x += omega*alpha*r, r -= omega*alpha*Ar, r2 = blas::norm2(r)//?
         coeff = (param.omega*alpha[1]) / alpha[2]
-	caxpyXmaz(coeff, rSloppy, xSloppy, Ar)
-	if(verbose == true); println("MR: ", step ," cycle, ", (k+1)," iterations, <r|A|r> = ", real(alpha[1]), ",  ", imag(alpha[1])); end
+	axpyXmaz(coeff, rSloppy, xSloppy, Ar)
+	if(verbose == true); println("MR: ", step ," cycle, ", (k+1)," iterations, <r|A|r> = ", alpha[1], "  residual norm = ", norm2(rSloppy)); end
 	
         k += 1
       end #while k < param.maxiter && r2 > 0.0

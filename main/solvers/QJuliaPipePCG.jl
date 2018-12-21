@@ -14,12 +14,12 @@ axpyZpbx = QJuliaBlas.axpyZpbx
 rdot     = QJuliaReduce.reDotProduct
 
 
-function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, param::QJuliaSolvers.QJuliaSolverParam_qj, K::Function) 
+function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, param::QJuliaSolvers.QJuliaSolverParam_qj, K::Function)
 
     println("Running PCG solver.")
 
-    if (param.maxiter == 0)  
-      if param.use_init_guess == false 
+    if (param.maxiter == 0)
+      if param.use_init_guess == false
         x .=@. 0.0 
       end
       return
@@ -52,9 +52,9 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
     if param.use_init_guess == true
       #r = b - Ax0 <- real
       Mat(r, x)
-      r .=@. b - r 
-      r2 = norm2(r)   
-    else 
+      r .=@. b - r
+      r2 = norm2(r)
+    else
       r2 = b2
       r .=@. b
       x .=@. 0.0
@@ -69,69 +69,65 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
     println("PipePCG: Initial residual = ", sqrt(r2))
 
-    global converged = false
+    converged = false; k = 0
 
-    global k = 0
-
-    global gamma_old = 0.0
-    global gamma_new_old = 0.0
-    global alpha_old = 0.0
+    γ_old     = 0.0
+    γ_new_old = 0.0
+    α_old     = 0.0
 
     while (k < param.maxiter && converged == false)
 
-      gamma     = rdot(r,u)
-      delta     = rdot(u,w)
+      γ = rdot(r,u)
+      δ = rdot(u,w)
 
       #K(m,w)
-      n .=@. w - r 
+      n .=@. w - r
       K(m, n)
-      m .=@. u + m 
-      Mat(n, m)  
+      m .=@. u + m
+      Mat(n, m)
 
-      if k > 0    
-        beta  = (gamma - gamma_new_old) / gamma_old
-        alpha = gamma / (delta-(beta*gamma)/alpha_old)
+      if k > 0
+        β = (γ - γ_new_old) / γ_old
+        α = γ / (δ-(β*γ) / α_old)
       else
-        beta  = 0.0
-        alpha = gamma / delta
+        β  = 0.0
+        α = γ / δ
       end
-      gamma_old = gamma
-      alpha_old = alpha
+      γ_old = γ
+      α_old = α
 
-      z .=@. n + beta*z
-      q .=@. m + beta*q
+      z .=@. n + β*z
+      q .=@. m + β*q
 
-      p .=@. u + beta*p
-      s .=@. w + beta*s
+      p .=@. u + β*p
+      s .=@. w + β*s
 
-      x .=@. x + alpha*p
-      r .=@. r - alpha*s
+      x .=@. x + α*p
+      r .=@. r - α*s
 
-      gamma_new_old = rdot(r, u)
+      γ_new_old = rdot(r, u)
 
-      u .=@. u - alpha*q
-      w .=@. w - alpha*z
+      u .=@. u - α*q
+      w .=@. w - α*z
 
-      converged = (gamma > stop) ? false : true
+      converged = (γ > stop) ? false : true
 
-      @printf("PipePCG: %d iteration, iter residual sq.: %le \n", k, gamma)
+      @printf("PipePCG: %d iteration, iter residual sq.: %le \n", k, γ)
 
       k += 1
     end #while
 
-    if (param.compute_true_res == true) 
+    if (param.compute_true_res == true)
       Mat(r, x)
 
-      r .=@. b - r 
+      r .=@. b - r
       r2 = norm2(r)
 
       param.true_res = sqrt(r2 / b2)
       println("PipePCG: converged after ", k , "  iterations, relative residual: true = ", sqrt(r2))
 
-    end #if (param.compute_true_res == true) 
+    end #if (param.compute_true_res == true)
 
 end #solver
 
 end #QJuliaPipePCG
-
-

@@ -14,13 +14,13 @@ axpyZpbx = QJuliaBlas.axpyZpbx
 rdot     = QJuliaReduce.reDotProduct
 
 
-function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, param::QJuliaSolvers.QJuliaSolverParam_qj, K::Function) 
+function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, param::QJuliaSolvers.QJuliaSolverParam_qj, K::Function)
 
     println("Running Chronopoulos Gear PCG solver.")
 
-    if (param.maxiter == 0)  
-      if param.use_init_guess == false 
-        x .=@. 0.0 
+    if (param.maxiter == 0)
+      if param.use_init_guess == false
+        x .=@. 0.0
       end
       return
     end #if param.maxiter == 0
@@ -37,14 +37,14 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
     local w       = typeof(r)(undef, length(r))
 
     b2 = norm2(b)  #Save norm of b
-    local r2 = 0.0     #if zero source then we will exit immediately doing no work
+    r2 = 0.0     #if zero source then we will exit immediately doing no work
 
     if param.use_init_guess == true
       #r = b - Ax0 <- real
       Mat(r, x)
-      r .=@. b - r 
-      r2 = norm2(r)   
-    else 
+      r .=@. b - r
+      r2 = norm2(r)
+    else
       r2 = b2
       r .=@. b
       x .=@. 0.0
@@ -59,64 +59,55 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
     println("CGPCG: Initial residual = ", sqrt(r2))
 
-    local converged = false
+    converged = false; k = 0
 
-    local k = 0
+    γ_old = 0.0
+    α_old = 0.0
 
-    local gamma_old = 0.0
-    local alpha_old = 0.0
-
-    local case = 2
+    case = 2
     while (k < param.maxiter && converged == false)
 
-      gamma     = rdot(r,u)
-      delta     = rdot(u,w) 
+      γ = rdot(r,u)
+      δ = rdot(u,w)
 
-      if k > 0    
-        beta  = gamma / gamma_old
-        alpha = gamma / (delta-(beta*gamma)/alpha_old)
+      if k > 0
+        β = γ / γ_old
+        α = γ / (δ-(β*γ) / α_old)
       else
-        beta  = 0.0
-        alpha = gamma / delta
+        β = 0.0
+        α = γ / δ
       end
-      gamma_old = gamma
-      alpha_old = alpha
+      γ_old = γ
+      α_old = α
 
-      p .=@. u + beta*p
-      s .=@. w + beta*s
+      p .=@. u + β*p
+      s .=@. w + β*s
 
-      x .=@. x + alpha*p
-      r .=@. r - alpha*s
+      x .=@. x + α*p
+      r .=@. r - α*s
 
       K(u, r)
-      Mat(w, u)      
+      Mat(w, u)
 
-      converged = (gamma > stop) ? false : true
+      converged = (γ > stop) ? false : true
 
-      @printf("CGPCG: %d iteration, iter residual: %le \n", k, sqrt(gamma))
+      @printf("CGPCG: %d iteration, iter residual: %le \n", k, sqrt(γ))
 
       k += 1
     end #while
 
-    if (param.compute_true_res == true) 
+    if (param.compute_true_res == true)
       Mat(r, x)
 
-      r .=@. b - r 
+      r .=@. b - r
       r2 = norm2(r)
 
       param.true_res = sqrt(r2 / b2)
       println("CGPCG: converged after ", k , "  iterations, relative residual: true = ", sqrt(r2))
 
-    end #if (param.compute_true_res == true) 
+    end #if (param.compute_true_res == true)
 
 end #solver
 
 
 end #QJuliaCGPCG
-
-
-
-
-
-
-

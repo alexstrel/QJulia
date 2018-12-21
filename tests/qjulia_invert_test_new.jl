@@ -43,10 +43,10 @@ const lz = 16
 const lt = 32
 const ls = 1
 
-spinor_field_desc = QJuliaFields.QJuliaLatticeFieldDescr_qj{ComplexF64}(QJuliaEnums.QJULIA_SCALAR_GEOMETRY, QJuliaEnums.QJULIA_INVALID_PARITY, false, 0, (lx,ly,lz,lt))
+spinor_field_desc = QJuliaFields.QJuliaLatticeFieldDescr_qj{ComplexF64}(QJuliaEnums.QJULIA_SCALAR_GEOMETRY, QJuliaEnums.QJULIA_INVALID_PARITY, false, 0, (lx,ly,lz,lt,ls))
 
-cs_in = QJuliaFields.CreateColorSpinor(spinor_field_desc, 4)
-cs_ou = QJuliaFields.CreateColorSpinor(spinor_field_desc, 4)
+cs_in = QJuliaFields.CreateColorSpinor(spinor_field_desc; NSpin=4)
+cs_ou = QJuliaFields.CreateColorSpinor(spinor_field_desc; NSpin=4)
 
 QJuliaFieldUtils.gen_random_spinor!(cs_in)
 
@@ -150,7 +150,7 @@ b_even = QJuliaFields.Even(cs_in)
 b_odd  = QJuliaFields.Odd(cs_in)
 
 #Auxiliary field
-tmp = QJuliaFields.CreateColorSpinor(spinor_field_desc, 4)
+tmp = QJuliaFields.CreateColorSpinor(spinor_field_desc; NSpin=4)
 
 t_even = QJuliaFields.Even(tmp)
 t_odd  = QJuliaFields.Odd(tmp)

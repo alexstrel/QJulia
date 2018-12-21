@@ -58,6 +58,9 @@ module QJuliaSolvers
     # Number of steps 
     Nsteps::Int
 
+    # Shift
+    shift::Float64
+
     #defualt constructor
     QJuliaSolverParam_qj() = new(QJuliaEnums.QJULIA_CG_INVERTER,
                                  QJuliaEnums.QJULIA_INVALID_INVERTER,
@@ -75,7 +78,8 @@ module QJuliaSolvers
 				 Float64, Float64, Float64, Float64,
 				 1.0, 
 				 true,
-				 0)
+				 0, 
+				 0.0)
 				 
 
   end #QJuliaSolverParam_qj

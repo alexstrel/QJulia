@@ -113,6 +113,25 @@ end #gnorm2
                  return (Complex{T}(recv_buff[1], recv_buff[2]), recv_buff[3])
 end #cDotProductNormX
 
+@inline function reDotProductNormX(x::Vector{T}, y::Vector{T})  where T <: AbstractFloat
+
+	local xdty = 0.0
+	local xnrm = 0.0  
+
+	for i in 1:length(x)
+		xdty += (x[i] * y[i])
+		xnrm += abs2(x[i])
+	end
+	send_buff = [xdty, xnrm]
+	if blas_global_reduction == true 
+		recv_buff = zeros(Cdouble, 2)
+		MPI.Allreduce!(send_buff, recv_buff, MPI.SUM, MPI.COMM_WORLD)
+	else
+		recv_buff = send_buff
+	end
+	return (recv_buff[1], recv_buff[2])
+end #reDotProductNormX    
+
 @inline function reDotProduct(x::Vector{T}, y::Vector{T})  where T <: AbstractFloat 
                  local res = 0.0 
 

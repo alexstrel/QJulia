@@ -80,7 +80,7 @@ mutable struct QJuliaLatticeFieldDescr_qj{T<:Any}
 				QJuliaEnums.QJULIA_CPU_FIELD_LOCATION) 
 
 
-  function QJuliaLatticeFieldDescr_qj{T}(geom::QJuliaEnums.QJuliaFieldGeometry_qj, parity::QJuliaEnums.QJuliaParity_qj, is_quda_grid::Bool, ndimscomm::Int, X::NTuple{4,Int64}) where T
+  function QJuliaLatticeFieldDescr_qj{T}(geom::QJuliaEnums.QJuliaFieldGeometry_qj, parity::QJuliaEnums.QJuliaParity_qj, is_quda_grid::Bool, ndimscomm::Int, X::NTuple) where T
      # Check lattice dimensions
      if sizeof(X) > (sizeof(Int)*QJULIA_MAX_DIMS); error("Requested lattice dimensions are not supported"); end
      # Set lattice dimensions
@@ -152,7 +152,7 @@ function field_desc_info(field_desc::QJuliaLatticeFieldDescr_qj)
   println("Register type : ", field_desc.register_type)
   println("Precision : ", field_desc.prec )
   println("Field geometry : ", field_desc.geom )
-  print("Field dimensions : ", field_desc.nDim, ", ("); [ if i != 1;print(i, ", ");end for i in field_desc.X]; println(")")
+  print("Field dimensions : ", field_desc.nDim, ", ("); [print(field_desc.X[i], ", ") for i in 1:field_desc.nDim]; println(")")
   println("Volume : ", field_desc.volume)
   println("VolumeCB : ", field_desc.volumeCB)
   println("Register elements for volume : ", field_desc.real_volume)
@@ -237,19 +237,19 @@ mutable struct QJuliaLatticeField_qj{NSpin<:Any, NColor<:Any, NBlock<:Any} <: QJ
 
 end #QJuliaLatticeField_qj
 
-CreateBlockColorSpinor(fdesc::QJuliaLatticeFieldDescr_qj, NSpin::Int, NColor::Int, NBlock::Int) = QJuliaLatticeField_qj{NSpin, NColor, NBlock}(fdesc)
+CreateBlockColorSpinor(fdesc::QJuliaLatticeFieldDescr_qj; NSpin::Int = 4, NColor::Int = 3, NBlock::Int = 1) = QJuliaLatticeField_qj{NSpin, NColor, NBlock}(fdesc)
 
 # Specialized constructors and helper methods
 
 # Pure single color spinor field
 QJuliaLatticeField_qj{NSpin, NColor}(fdesc::QJuliaLatticeFieldDescr_qj) where NSpin where NColor =  QJuliaLatticeField_qj{NSpin, NColor, 1}(fdesc::QJuliaLatticeFieldDescr_qj)
 #
-CreateColorSpinor(fdesc::QJuliaLatticeFieldDescr_qj, NSpin::Int, NColor::Int = 3) = QJuliaLatticeField_qj{NSpin, NColor}(fdesc)
+CreateColorSpinor(fdesc::QJuliaLatticeFieldDescr_qj; NSpin::Int = 4, NColor::Int = 3) = QJuliaLatticeField_qj{NSpin, NColor}(fdesc)
 
 # Gauge field 
 QJuliaLatticeField_qj{NColor}(fdesc::QJuliaLatticeFieldDescr_qj) where NColor  =  QJuliaLatticeField_qj{0, NColor, 1}(fdesc::QJuliaLatticeFieldDescr_qj)
 #
-CreateGaugeField(fdesc::QJuliaLatticeFieldDescr_qj, NColor::Int = 3) = QJuliaLatticeField_qj{NColor}(fdesc)
+CreateGaugeField(fdesc::QJuliaLatticeFieldDescr_qj; NColor::Int = 3) = QJuliaLatticeField_qj{NColor}(fdesc)
 
 #Create references to parity fields
 Even(field::QJuliaGenericField_qj) = QJuliaLatticeField_qj{field.nSpin, field.nColor, field.nBlock}(field, QJuliaEnums.QJULIA_EVEN_PARITY)
@@ -284,11 +284,11 @@ end
 
 # DO TEST
 
-  spinor_field_desc = QJuliaLatticeFieldDescr_qj{m256d}(QJuliaEnums.QJULIA_SCALAR_GEOMETRY, QJuliaEnums.QJULIA_INVALID_PARITY, false, 0, (8,8,8,8))
+  spinor_field_desc = QJuliaLatticeFieldDescr_qj{m256d}(QJuliaEnums.QJULIA_SCALAR_GEOMETRY, QJuliaEnums.QJULIA_INVALID_PARITY, false, 0, (8,8,8,8,1))
 
   println(typeof(spinor_field_desc))
 
-  spinor_field = CreateColorSpinor(spinor_field_desc, 4)
+  spinor_field = CreateColorSpinor(spinor_field_desc; NSpin=4)
 
   field_info(spinor_field)
 

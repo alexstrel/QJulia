@@ -95,6 +95,16 @@ end #xpy
          end
 end #caxpyXmaz
 
+@inline function axpyXmaz(a, x::Vector{T}, y::Vector{T}, z::Vector{T})  where T <: AbstractFloat
+
+@threads for i in 1:length(x)
+		y[i]  += a*x[i]
+		x[i]  -= a*z[i]
+	end   
+
+end #axpyXmaz
+
+
 #First performs the operation x[i] = x[i] + a*p[i]
 #Second performs the operator p[i] = u[i] + b*p[i]
 

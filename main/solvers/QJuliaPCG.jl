@@ -15,7 +15,7 @@ rdot     = QJuliaReduce.reDotProduct
 cpy      = QJuliaBlas.cpy
 
 
-function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, param::QJuliaSolvers.QJuliaSolverParam_qj, K::Function) 
+function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, param::QJuliaSolvers.QJuliaSolverParam_qj, K::Function)
 
     is_preconditioned = param.inv_type_precondition != QJuliaEnums.QJULIA_INVALID_INVERTER
 
@@ -23,9 +23,9 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
     println("Running ", solver_name ," solver.")
 
-    if (param.maxiter == 0)  
-      if param.use_init_guess == false 
-        x .=@. 0.0 
+    if (param.maxiter == 0)
+      if param.use_init_guess == false
+        x .=@. 0.0
       end
       return
     end #if param.maxiter == 0
@@ -34,7 +34,7 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
     local r   = Vector{param.dtype_sloppy}(undef, length(x))
     # now allocate sloppy fields
-    local rSloppy = mixed == true ? Vector{param.dtype_sloppy}(undef, length(b)) : r  
+    local rSloppy = mixed == true ? Vector{param.dtype_sloppy}(undef, length(b)) : r
     local p       = typeof(rSloppy)(undef, length(rSloppy))
     local s       = typeof(rSloppy)(undef, length(rSloppy))
 #    local u       = is_preconditioned == true ? typeof(rSloppy)(undef, length(rSloppy)) : rSloppy
@@ -51,9 +51,9 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
     if param.use_init_guess == true
       #r = b - Ax0 <- real
       Mat(r, x)
-      r .=@. b - r 
-      r2 = norm2(r)   
-    else 
+      r .=@. b - r
+      r2 = norm2(r)
+    else
       r2 = b2
       r .=@. b
       x .=@. 0.0
@@ -74,34 +74,31 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
     println(solver_name," : Initial residual = ", sqrt(r2))
 
-    local converged = false
+    ru = rdot(rSloppy, u); ru_old = 0.0
 
-    local ru = rdot(rSloppy, u)
-    local ru_old = 0.0
-
-    local k = 0
+    k = 0; converged = false
 
 @time    while (k < param.maxiter && converged == false)
 
       MatSloppy(s, p)
       #
-      alpha = ru / rdot(s, p)
+      α = ru / rdot(s, p)
       # update the residual
-      rSloppy .=@. rSloppy - alpha*s
-      # 
+      rSloppy .-=@. α*s
+      #
       ru_old = ru
       #
       r_newu_old = rdot(rSloppy, u)
-      # compute precond residual 
+      # compute precond residual
       cpy(rPre, rSloppy) #noop for the alias refs
       K(pPre, rPre)      #noop for the alias reference
       cpy(u, pPre)       #noop for the alias refs
 
-      ru    = rdot(rSloppy, u)  
+      ru    = rdot(rSloppy, u)
 
-      beta  = (ru - r_newu_old) / ru_old
+      β = (ru - r_newu_old) / ru_old
       # update solution and conjugate vector
-      axpyZpbx(alpha, p, xSloppy, u, beta)
+      axpyZpbx(α, p, xSloppy, u, β)
 
       converged = (ru > stop) ? false : true
 
@@ -113,24 +110,17 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
     x .= @. xSloppy
 
-    if (param.compute_true_res == true) 
+    if (param.compute_true_res == true)
       Mat(r, x)
 
-      r .=@. b - r 
+      r .=@. b - r
       r2 = norm2(r)
 
       param.true_res = sqrt(r2 / b2)
       println(solver_name, ": converged after ", k , "  iterations, relative residual: true = ", sqrt(r2))
 
-    end #if (param.compute_true_res == true) 
+    end #if (param.compute_true_res == true)
 
 end #solver
 
 end #QJuliaPCG
-
-
-
-
-
-
-
