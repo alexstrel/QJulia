@@ -14,6 +14,13 @@ axpyZpbx = QJuliaBlas.axpyZpbx
 rdot     = QJuliaReduce.reDotProduct
 cpy      = QJuliaBlas.cpy
 
+@inline function MatPrecon(out::AbstractArray, inp::AbstractArray, outSloppy::AbstractArray, inpSloppy::AbstractArray, K::Function )
+
+  cpy(inpSloppy, inp)       #noop for the alias refs
+  K(outSloppy, inpSloppy)   #noop for the alias reference
+  cpy(out, outSloppy)       #noop for the alias refs
+
+end
 
 function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, param::QJuliaSolvers.QJuliaSolverParam_qj, K::Function)
 
@@ -35,6 +42,7 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
     local r   = Vector{param.dtype_sloppy}(undef, length(x))
     # now allocate sloppy fields
     local rSloppy = mixed == true ? Vector{param.dtype_sloppy}(undef, length(b)) : r
+    local rSloppyOld = Vector{param.dtype_sloppy}(undef, length(b))
     local p       = typeof(rSloppy)(undef, length(rSloppy))
     local s       = typeof(rSloppy)(undef, length(rSloppy))
 #    local u       = is_preconditioned == true ? typeof(rSloppy)(undef, length(rSloppy)) : rSloppy
@@ -45,8 +53,10 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
     local rPre    = param.dtype_precondition != param.dtype_sloppy ? Vector{param.dtype_precondition}(undef, length(x)) : rSloppy
     local pPre    = param.dtype_precondition != param.dtype_sloppy ? Vector{param.dtype_precondition}(undef, length(x)) : u
 
+    Precond(out, inp) = MatPrecon(out, inp, pPre, rPre,K)
+
     b2 = norm2(b)  #Save norm of b
-    local r2 = 0.0     #if zero source then we will exit immediately doing no work
+    r2 = 0.0     #if zero source then we will exit immediately doing no work
 
     if param.use_init_guess == true
       #r = b - Ax0 <- real
@@ -59,14 +69,12 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
       x .=@. 0.0
     end
 
-    rSloppy .=@. r
-
-    cpy(rPre, rSloppy) #noop for the alias refs
-    K(pPre, rPre)      #noop for the alias reference
-    cpy(u, pPre)       #noop for the alias refs
-
+    cpy(rSloppy, r)
+    #
+    Precond(u, rSloppy)
+    #
     p  .=@. u
-
+    #
     xSloppy .=@. 0.0
 
     # if invalid residual then convergence is set by iteration count only
@@ -74,7 +82,7 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
     println(solver_name," : Initial residual = ", sqrt(r2))
 
-    ru = rdot(rSloppy, u); ru_old = 0.0
+    γnew = rdot(rSloppy, u); γold = 0.0; γt = 0.0
 
     k = 0; converged = false
 
@@ -82,28 +90,32 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
       MatSloppy(s, p)
       #
-      α = ru / rdot(s, p)
+      η = rdot(s, p)
+      #
+      α = γnew / η
+      #
+      γold = γnew
       # update the residual
-      rSloppy .-=@. α*s
+      rSloppyOld .=@. rSloppy
+      rSloppy    .=@. rSloppy - α*s
+      # update the Solution
+      xSloppy    .=@. xSloppy + α*p
+      # preconditioned residual
+      Precond(u, rSloppy)
+      # Some routine dot products
+      γnew = rdot(rSloppy, u)
       #
-      ru_old = ru
+      rSloppyOld .=@. rSloppy - rSloppyOld
       #
-      r_newu_old = rdot(rSloppy, u)
-      # compute precond residual
-      cpy(rPre, rSloppy) #noop for the alias refs
-      K(pPre, rPre)      #noop for the alias reference
-      cpy(u, pPre)       #noop for the alias refs
+      γaux = rdot(rSloppyOld, u)
+      #
+      β  =  γaux / γold
+      p .=@. u + β*p
 
-      ru    = rdot(rSloppy, u)
-
-      β = (ru - r_newu_old) / ru_old
-      # update solution and conjugate vector
-      axpyZpbx(α, p, xSloppy, u, β)
-
-      converged = (ru > stop) ? false : true
+      converged = (γnew > stop) ? false : true
 
 #      println("PCG: ", k ," iteration, iter residual: ", sqrt(ru))
-      @printf("%s: %d iteration, iter residual: %le \n", solver_name, k, sqrt(ru))
+      @printf("%s: %d iteration, iter residual: %le \n", solver_name, k, sqrt(γnew))
 
       k += 1
     end #while
