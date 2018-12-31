@@ -121,6 +121,26 @@ function csrmv(b::AbstractArray, m::GenericCSRMat, x::AbstractArray)
 
 end
 
+function csrmv(m::GenericCSRMat, x::AbstractArray) 
+  
+   b = zero(typeof(x)(undef, length(x)))
+@threads  for j in m.X[1]
+#  for j in m.X[1]
+    offset  = m.csrRows[j] - m.csrRows[1] 
+    row_nnz = m.csrRows[j+1] - m.csrRows[j]
+    b[j]    = 0.0
+
+    for i in 1:row_nnz
+      cid   = m.csrCols[offset+i]
+      b[j] += m.csrVals[offset+i]*x[cid]
+    end
+
+  end
+
+  return b
+end
+
+
 function ilu0(M::GenericCSRMat)
 
   println("Perform ILU decomposition on matrix ", typeof(M) )

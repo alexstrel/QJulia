@@ -1,3 +1,5 @@
+#!/usr/bin/env julia 
+
 #load path to qjulia home directory
 push!(LOAD_PATH, string(ENV["QJULIA_HOME"],"/matrix"))
 
@@ -8,7 +10,10 @@ using IterativeSolvers
 using LinearMaps
 using Random
 
-#matrix_path = "/home/astrel/data/nasa2146/nasa2146.mtx"                                                                                                                   matrix_path = "/home/astrel/data/nasa2910/nasa2910.mtx"                                                                                                                    #matrix_path = "/home/astrel/data/nasa4704/nasa4704.mtx"                                                                                                                   #matrix_path = "/home/astrel/data/smt/smt.mtx"  
+#matrix_path = "/home/astrel/data/nasa2146/nasa2146.mtx"
+#matrix_path = "/home/astrel/data/nasa2910/nasa2910.mtx"
+matrix_path = "/home/astrel/data/nasa4704/nasa4704.mtx"
+#matrix_path = "/home/astrel/data/smt/smt.mtx"
 
 Random.seed!(2018)
 

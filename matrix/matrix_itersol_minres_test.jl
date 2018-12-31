@@ -1,3 +1,5 @@
+#!/usr/bin/env julia
+
 #load path to qjulia home directory
 push!(LOAD_PATH, string(ENV["QJULIA_HOME"],"/matrix"))
 
