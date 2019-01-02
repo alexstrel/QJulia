@@ -1,30 +1,38 @@
-# This is an initial commit
+# QJulia 
 
-Very brief instructions
+[![License](http://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)](LICENSE.md)
 
-1. Current version requires quda dynamic library. This should be compiled with -DQUDA_BUILD_SHAREDLIB=ON cmake option. Of course, one can convert existing static library
-into dynamic one. Also set LD_LIBRARY_PATH to directory with libquda.so
-I recommend experimental/CAsolvers branch for experiments (use -DQUDA_JULIA=ON cmake option to enable julia binding)
-but devel branch should be equally fine. See a WARNING below, though.
+A Julia package for algorithm prototyping for lattice QFT applications. It currently provides with an interface to the QUDA library that allows one to execute typical
+LQCD computational kernels on NVIDIA GPUs. 
 
-WARNING (just if one wants develop quda branch)
+## Prerequisites
+
+Julia versions 1.0.1 - 1.0.3, shared QUDA library [QUDA](https://github.com/lattice/quda)  built with `-DQUDA_BUILD_SHAREDLIB=ON` cmake option 
+
+
+## Instructions
+
+Set `LD_LIBRARY_PATH` to directory with `libquda.so`
+I recommend experimental/CAsolvers branch for the QUDA-Julia experiments. (Please use `-DQUDA_JULIA=ON` cmake option to enable julia binding)
+The current quda devel branch should be fine as well. See a WARNING below, though.
+
+WARNING (just if one wants develop QUDA branch)
 I experienced a problem with loading gauge configuration on QUDA. The fix is rather trivial, in the loadGaugeQuda routine one needs explicitely re-assign gauge field pointers, as it was done in lines 714-725 in experimental/CAsolvers branch, please see:
-https://github.com/lattice/quda/blob/experimental/CAsolvers/lib/interface_quda.cpp#L714-L725
+[](https://github.com/lattice/quda/blob/experimental/CAsolvers/lib/interface_quda.cpp#L714-L725)
 
+Set path to Julia working directory (or modify `set_env.sh` script). Also, setup a desired number of threads for the execution on the host.
 
-2. Set path to Julia working directory (modify set_env.sh script, also set up desired number of threads, it's equal to 4 on my machines with for 4 core cpus)
+Execution is straightforward, e.g., 
+`julia qjulia_quda_invert_test.jl` or simply `./qjulia_quda_invert_test.jl`
 
-3. Execution is straightforward, just type
-julia qjulia_quda_invert_test.jl
+One needs to `QUDA_RESOURCE_PATH` and `QUDA_ENABLE_TUNING` environemnt variables, as usual for QUDA.
 
-4. One needs QUDA_RESOURCE_PATH and QUDA_ENABLE_TUNING env variable, as usual for QUDA.
+Current verion does not provide command line options, so everything is hard-corded. For example, default is a single-gpu execution. If one wants to execute on many gpus, please modify
 
-5. Current verion does not provide command line options, so everything is hard-corded. For example, default is a single-gpu execution. If one wants to execute on many gpus, please modify
+`QJuliaUtils.gridsize_from_cmdline[i]` in line 16 of `qjulia_quda_invert_test.jl` file.
+For example, `QJuliaUtils.gridsize_from_cmdline=[1 1 1 4]` for 4 gpus etc.
 
-QJuliaUtils.gridsize_from_cmdline[i] in line 16 of qjulia_quda_invert_test.jl file.
-For example, QJuliaUtils.gridsize_from_cmdline=[1 1 1 4] for 4 gpus etc.
-
-6. Directory structure
+## Directory structure
 
 6.1 ./core contains interface stuff, that includes :
     -- QJuliaEnums.jl => module with QUDA-like enum structures.
