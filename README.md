@@ -7,7 +7,7 @@ LQCD computational kernels on NVIDIA GPUs.
 
 ## Prerequisites
 
-Julia versions 1.0.1 - 1.0.3, shared QUDA library [QUDA](https://github.com/lattice/quda)  built with `-DQUDA_BUILD_SHAREDLIB=ON` cmake option. Required Julia packagesare : `MPI.jl`, `ArgParse.jl` and `LinearAlgebra`. Optional packages are `IterativeSolvers`, `LinearMaps`, `MatrixMarket`. All packages can be installed with the package mager , e.g., `Pkg.add("PackageName")`
+Julia versions 1.0.X, shared QUDA library [QUDA](https://github.com/lattice/quda)  built with `-DQUDA_BUILD_SHAREDLIB=ON` cmake option. Required Julia packages are : `MPI.jl`, `ArgParse.jl` and `LinearAlgebra`. Optional packages are `IterativeSolvers`, `LinearMaps`, `MatrixMarket`. All packages can be installed with the package manager , e.g., `Pkg.add("PackageName")`
 
 
 ## Instructions
