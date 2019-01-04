@@ -31,6 +31,10 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
     println("Running ", solver_name ," solver.")
 
+    if is_preconditioned == true
+      println("Preconditioner: ", param.inv_type_precondition)
+    end
+
     if (param.maxiter == 0)
       if param.use_init_guess == false
         x .=@. 0.0

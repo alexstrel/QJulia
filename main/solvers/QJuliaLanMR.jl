@@ -31,7 +31,7 @@ end
 
 function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, param::QJuliaSolvers.QJuliaSolverParam_qj)
 
-    println("Running MR solver in maximum " , param.Nsteps, " step(s).")
+    if verbose == true; println("Running Lanczos version of MR solver in maximum " , param.Nsteps, " step(s)."); end
 
     QJuliaReduce.set_blas_global_reduction(param.global_reduction)
 
@@ -86,7 +86,7 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
     end
 
     if( rnorm == 0.0 ); return; end
-    println("MR: Initial residual = ", rnorm)
+    if verbose == true; println("MR: Initial residual = ", rnorm); end
 
     # Load init vectors
     vk   .=@. (1.0 / rnorm) * r
@@ -140,7 +140,7 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
     rnorm = sqrt(norm2(r))
 
     param.true_res = rnorm / bnorm
-    println("MR: Relative residual: true = ", param.true_res)
+    if verbose == true; println("MR: Relative residual: true = ", param.true_res); end
 
     QJuliaReduce.reset_blas_global_reduction()
 

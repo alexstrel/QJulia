@@ -12,7 +12,7 @@ import QJuliaReduce
 import QJuliaUtils
 import QJuliaEnums
 import QJuliaInterface
-#import QJuliaGaugeUtils
+import QJuliaGaugeUtils
 import QJuliaComms
 import QJuliaSolvers
 import QUDARoutines
@@ -20,10 +20,6 @@ import QUDARoutines
 using Random
 using LinearAlgebra
 using MPI
-
-#create function/type alias
-double  = Float64
-float   = Float32
 
 ##############################################################################################
 
@@ -47,8 +43,8 @@ const ls = 1
 
 spinor_field_desc = QJuliaFields.QJuliaLatticeFieldDescr_qj{ComplexF64}(QJuliaEnums.QJULIA_SCALAR_GEOMETRY, QJuliaEnums.QJULIA_INVALID_PARITY, false, 0, (lx,ly,lz,lt,ls))
 
-cs_in = QJuliaFields.CreateColorSpinor(spinor_field_desc; NSpin=4)
-cs_ou = QJuliaFields.CreateColorSpinor(spinor_field_desc; NSpin=4)
+cs_in = QJuliaFields.CreateColorSpinor(spinor_field_desc)
+cs_ou = QJuliaFields.CreateColorSpinor(spinor_field_desc)
 
 QJuliaFieldUtils.gen_random_spinor!(cs_in)
 
@@ -68,8 +64,8 @@ gauge_param.reconstruct_precondition      = QJuliaEnums.QJULIA_RECONSTRUCT_12
 gauge_param.reconstruct_refinement_sloppy = QJuliaEnums.QJULIA_RECONSTRUCT_12
 gauge_param.cuda_prec_refinement_sloppy   = QJuliaEnums.QJULIA_HALF_PRECISION
 
-#println("======= Gauge parameters =======")
-#QJuliaInterface.printQudaGaugeParam_qj(gauge_param)
+println("======= Gauge parameters =======")
+QUDARoutines.printQudaGaugeParam_qj(gauge_param)
 
 gauge_field_desc = QJuliaFields.QJuliaLatticeFieldDescr_qj{ComplexF64}(QJuliaEnums.QJULIA_VECTOR_GEOMETRY, QJuliaEnums.QJULIA_INVALID_PARITY, false, 0, (lx,ly,lz,lt))
 
@@ -78,8 +74,9 @@ QJuliaFieldUtils.construct_gauge_field!(gauge_field, 1, gauge_param)
 
 inv_param = QJuliaInterface.QJuliaInvertParam_qj()
 inv_param.residual_type = QJuliaEnums.QJULIA_L2_RELATIVE_RESIDUAL
-#println("======= Invert parameters =======")
-#QJuliaInterface.printQudaInvertParam_qj(inv_param)
+
+println("======= Invert parameters =======")
+QUDARoutines.printQudaInvertParam_qj(inv_param)
 
 gauge_param.gtype       = QJuliaEnums.QJULIA_SU3_LINKS 		#currently cannot set QJULIA_WILSON_LINKS (=QJULIA_SU3_LINKS)  for QUDA
 
@@ -112,16 +109,16 @@ inv_param.inv_type = QJuliaEnums.QJULIA_PCG_INVERTER
 
 println("Kappa = ",  inv_param.kappa)
 
-matvec(out, inp)    = QUDARoutines.MatDagMatQuda_qj(out, inp, inv_param)
-dslash_oe(out, inp) = QUDARoutines.dslashQuda_qj(out, inp, inv_param, QJuliaEnums.QJULIA_EVEN_PARITY)
-dslash_eo(out, inp) = QUDARoutines.dslashQuda_qj(out, inp, inv_param, QJuliaEnums.QJULIA_ODD_PARITY )
+mdagm(out, inp) = QUDARoutines.MatDagMatQuda_qj(out, inp, inv_param)
+Doe(out, inp)   = QUDARoutines.dslashQuda_qj(out, inp, inv_param, QJuliaEnums.QJULIA_EVEN_PARITY)
+Deo(out, inp)   = QUDARoutines.dslashQuda_qj(out, inp, inv_param, QJuliaEnums.QJULIA_ODD_PARITY )
 
 # Setup preconditioner
 precond_param = QJuliaInterface.QJuliaInvertParam_qj()
 
 precond_param.residual_type            = QJuliaEnums.QJULIA_L2_RELATIVE_RESIDUAL
 #precond_param.inv_type                 = QJuliaEnums.QJULIA_PCG_INVERTER
-precond_param.inv_type                 = QJuliaEnums.QJULIA_MR_INVERTER #wroks for naive and fails for pipelined
+precond_param.inv_type                 = QJuliaEnums.QJULIA_LANMR_INVERTER #wroks for naive and fails for pipelined
 precond_param.dslash_type_precondition = QJuliaEnums.QJULIA_WILSON_DSLASH
 precond_param.kappa                    = 1.0 / (2.0 * (1 + 3/gauge_param.anisotropy + mass))
 precond_param.cuda_prec                = QJuliaEnums.QJULIA_DOUBLE_PRECISION
@@ -131,7 +128,7 @@ precond_param.solution_type            = QJuliaEnums.QJULIA_MATPC_SOLUTION
 precond_param.maxiter                  = precond_param.inv_type == QJuliaEnums.QJULIA_PCG_INVERTER ? 30 : 6
 precond_param.Nsteps    	       = 1
 
-matvecPre(out, inp)  = QUDARoutines.MatDagMatQuda_qj(out, inp, precond_param)
+mdagmPre(out, inp)  = QUDARoutines.MatDagMatQuda_qj(out, inp, precond_param)
 
 pre_solv_param = QJuliaSolvers.QJuliaSolverParam_qj()
 
@@ -142,8 +139,7 @@ pre_solv_param.maxiter   = precond_param.maxiter
 pre_solv_param.Nsteps    = 1
 pre_solv_param.global_reduction = false
 
-K(out, inp) = QJuliaSolvers.solve(out, inp, matvecPre, matvecPre, pre_solv_param)
-#K(out, inp) = QUDARoutines.invertQuda_qj(out, inp, precond_param)
+K(out, inp) = QJuliaSolvers.solve(out, inp, mdagmPre, mdagmPre, pre_solv_param)
 
 x_even = QJuliaFields.Even(cs_ou)
 x_odd  = QJuliaFields.Odd(cs_ou)
@@ -160,14 +156,14 @@ t_odd  = QJuliaFields.Odd(tmp)
 #prepare source/solution:
 if inv_param.matpc_type == QJuliaEnums.QJULIA_MATPC_EVEN_EVEN
 # src = b_e + k D_eo b_o
-dslash_eo(t_even.v, b_odd.v)
+Deo(t_even.v, b_odd.v)
 x_odd.v .=@. b_even.v + inv_param.kappa*t_even.v
 end
 
 #
 x_odd2 = dot(x_odd.v, x_odd.v)
 #
-println("Initial source norm sqrt: ", sqrt(real(x_odd2)), " ,source norm ", x_odd2, " , requested tolerance: ", inv_param.tol)
+println("Initial source norm: ", sqrt(real(x_odd2)), " ,source norm2 ", x_odd2, " , requested tolerance: ", inv_param.tol)
 
 solv_param = QJuliaSolvers.QJuliaSolverParam_qj()
 # Set up parameters
@@ -176,27 +172,29 @@ solv_param.inv_type_precondition  = precond_param.inv_type
 solv_param.tol                    = inv_param.tol
 #
 solv_param.maxiter                = inv_param.maxiter
-solv_param.Nsteps                 = 2
-#matrix form
-#sol = view(reinterpret(cs_ou.field_desc.prec, cs_ou.v), :, :)
-#src = view(reinterpret(cs_in.field_desc.prec, cs_in.v), :, :)
-#vector form
-sol = view(reinterpret(cs_ou.field_desc.prec, cs_ou.v), :)
-src = view(reinterpret(cs_in.field_desc.prec, cs_in.v), :)
+solv_param.Nsteps                 = 1
 
-QJuliaSolvers.solve(sol, src, matvec, matvec, solv_param, K)
+#matrix form
+#sol = view(reinterpret(cs_ou.field_desc.prec, x_even.v), :, :)
+#src = view(reinterpret(cs_in.field_desc.prec, x_odd.v), :, :)
+
+#vector form
+sol = view(reinterpret(cs_ou.field_desc.prec, x_even.v), :)
+src = view(reinterpret(cs_in.field_desc.prec, x_odd.v), :)
+
+QJuliaSolvers.solve(sol, src, mdagm, mdagm, solv_param, K)
 
 #compute true residual:
 r = t_odd.v
-matvec(r, x_even.v)
+mdagm(r, x_even.v)
 r  .=@. x_odd.v - r
 r2 = dot(r, r) 
-println("True residual sqrt: ", sqrt(real(r2)))
+println("True residual: ", sqrt(real(r2)))
 
 #reconstruct source/solution:
 if inv_param.matpc_type == QJuliaEnums.QJULIA_MATPC_EVEN_EVEN
 # x_o = b_o + k D_oe x_e
-dslash_oe(t_odd.v, x_even.v)
+Doe(t_odd.v, x_even.v)
 x_odd.v .=@. b_odd.v + inv_param.kappa*t_odd.v
 end
 
