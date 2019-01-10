@@ -61,6 +61,9 @@ module QJuliaSolvers
     # Shift
     shift::Float64
 
+    # Reliable updates parameter
+    delta::Float64
+
     #defualt constructor
     QJuliaSolverParam_qj() = new(QJuliaEnums.QJULIA_CG_INVERTER,
                                  QJuliaEnums.QJULIA_INVALID_INVERTER,
@@ -79,7 +82,8 @@ module QJuliaSolvers
 				 1.0,
 				 true,
 				 0,
-				 0.0)
+				 0.0,
+				 0.01)
 
 
   end #QJuliaSolverParam_qj
@@ -87,6 +91,7 @@ module QJuliaSolvers
   include("../main/solvers/QJuliaMR.jl")
   include("../main/solvers/QJuliaLanMR.jl")
   include("../main/solvers/QJuliaPCG.jl")
+  include("../main/solvers/QJuliaMPPCG.jl")
   include("../main/solvers/QJuliaPipePCG.jl")
   include("../main/solvers/QJuliaCGPCG.jl")
 
@@ -99,9 +104,13 @@ module QJuliaSolvers
     if param.inv_type == QJuliaEnums.QJULIA_MR_INVERTER
       QJuliaMR.solver(out, inp, m,mSloppy, param)
     elseif param.inv_type == QJuliaEnums.QJULIA_LANMR_INVERTER
-      QJuliaLanMR.solver(out, inp, m,mSloppy, param)
+      QJuliaLanMR.solver(out, inp, m, mSloppy, param)
     elseif param.inv_type == QJuliaEnums.QJULIA_PCG_INVERTER
-      QJuliaPCG.solver(out, inp, m,mSloppy, param, K)
+      if (m == mSloppy)
+        QJuliaPCG.solver(out, inp, m, mSloppy, param, K)
+      else
+        QJuliaMPPCG.solver(out, inp, m, mSloppy, param, K)
+      end 
     elseif param.inv_type == QJuliaEnums.QJULIA_PIPEPCG_INVERTER
       #QJuliaCGPCG.solver(out, inp, m,mSloppy, param, K)
       QJuliaPipePCG.solver(out, inp, m,mSloppy, param, K)

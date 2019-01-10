@@ -23,7 +23,11 @@ MPI.Init()
 
 Random.seed!(2018)
 
-csrM = MatrixBase.CSRMat{Float64}(matrix_path)
+prec        = Float64
+prec_sloppy = Float32
+
+csrM       = MatrixBase.CSRMat{prec}(matrix_path)
+csrMsloppy = prec_sloppy != prec ? MatrixBase.CSRMat{prec_sloppy}(matrix_path) : csrM
 
 MatrixBase.print_CSRMat_info(csrM)
 
@@ -37,20 +41,23 @@ x .= 0.0
 z .= 0.0
 b .= rand(data_type, csrM.Dims[2])
 
-#M(b,x) = MatrixBase.csrmv(b, csrM, x)
+M(b,x)        = MatrixBase.csrmv(b, csrM, x)
+Msloppy(b,x)  = MatrixBase.csrmv(b, csrMsloppy, x)
 #or just:
 #M=MatrixMarket.mmread(matrix_path)
 
 solv_param = QJuliaSolvers.QJuliaSolverParam_qj()
 # Set up parameters
+solv_param.dtype                  = prec
+solv_param.dtype_sloppy           = prec_sloppy
 solv_param.inv_type               = QJuliaEnums.QJULIA_PCG_INVERTER
 solv_param.inv_type_precondition  = QJuliaEnums.QJULIA_INVALID_INVERTER
 solv_param.tol                    = 1e-8
 #
-solv_param.maxiter                = 100000
+solv_param.maxiter                = 600
 solv_param.Nsteps                 = 2
 
-@time QJuliaSolvers.solve(x, b, M, M, solv_param)
+@time QJuliaSolvers.solve(x, b, M, Msloppy, solv_param)
 
 #compute residual:
 M(z, x)
