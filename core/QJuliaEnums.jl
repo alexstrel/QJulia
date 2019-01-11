@@ -121,7 +121,7 @@ module QJuliaEnums
     QJULIA_LRE_PCG_INVERTER
     QJULIA_CA_CG_INVERTER
     QJULIA_CA_GCR_INVERTER
-    QJULIA_LANMR_INVERTER    
+    QJULIA_LANMR_INVERTER
     QJULIA_INVALID_INVERTER = QJULIA_INVALID_ENUM
   end
 
@@ -302,9 +302,9 @@ module QJuliaEnums
 
   # Which sites are included
   @enum QJuliaSiteSubset_qj begin
-    QJULIA_PARITY_SITE_jUBSET = 1
-    QJULIA_FULL_SITE_jUBSET = 2
-    QJULIA_INVALID_SITE_jUBSET = QJULIA_INVALID_ENUM
+    QJULIA_PARITY_SITE_SUBSET = 1
+    QJULIA_FULL_SITE_SUBSET = 2
+    QJULIA_INVALID_SITE_SUBSET = QJULIA_INVALID_ENUM
   end
 
   # Site ordering (always t-z-y-x with rightmost varying fastest)
@@ -416,7 +416,7 @@ module QJuliaEnums
   @enum QJuliaSetupType_qj begin
     QJULIA_NULL_VECTOR_SETUP
     QJULIA_TEST_VECTOR_SETUP
-    QJULIA_INVALID_jETUP_TYPE = QJULIA_INVALID_ENUM
+    QJULIA_INVALID_SETUP_TYPE = QJULIA_INVALID_ENUM
   end
 
   @enum QJuliaBoolean_qj begin

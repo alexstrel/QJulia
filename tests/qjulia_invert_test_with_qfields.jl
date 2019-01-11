@@ -1,9 +1,9 @@
 #!/usr/bin/env julia
 
 #load path to qjulia home directory
-push!(LOAD_PATH, string(ENV["QJULIA_HOME"],"/core"))
-push!(LOAD_PATH, string(ENV["QJULIA_HOME"],"/libs/quda-routines"))
-push!(LOAD_PATH, string(ENV["QJULIA_HOME"],"/main/fields"))
+push!(LOAD_PATH, joinpath(@__DIR__, "..", "core"))
+push!(LOAD_PATH, joinpath(@__DIR__, "..", "libs/quda-routines"))
+push!(LOAD_PATH, joinpath(@__DIR__, "..", "main/fields"))
 
 import QJuliaFields
 import QJuliaFieldUtils
@@ -103,7 +103,7 @@ inv_param.maxiter = 100
 inv_param.cuda_prec = QJuliaEnums.QJULIA_DOUBLE_PRECISION
 inv_param.cuda_prec_sloppy = QJuliaEnums.QJULIA_SINGLE_PRECISION
 inv_param.cuda_prec_precondition = QJuliaEnums.QJULIA_HALF_PRECISION
-inv_param.solution_type = QJuliaEnums.QJULIA_MATPC_SOLUTION 
+inv_param.solution_type = QJuliaEnums.QJULIA_MATPC_SOLUTION
 #inv_param.inv_type = QJuliaEnums.QJULIA_PIPEPCG_INVERTER
 inv_param.inv_type = QJuliaEnums.QJULIA_PCG_INVERTER
 
@@ -124,7 +124,7 @@ precond_param.kappa                    = 1.0 / (2.0 * (1 + 3/gauge_param.anisotr
 precond_param.cuda_prec                = QJuliaEnums.QJULIA_DOUBLE_PRECISION
 precond_param.cuda_prec_sloppy         = QJuliaEnums.QJULIA_SINGLE_PRECISION
 precond_param.cuda_prec_precondition   = QJuliaEnums.QJULIA_DOUBLE_PRECISION
-precond_param.solution_type            = QJuliaEnums.QJULIA_MATPC_SOLUTION 
+precond_param.solution_type            = QJuliaEnums.QJULIA_MATPC_SOLUTION
 precond_param.maxiter                  = precond_param.inv_type == QJuliaEnums.QJULIA_PCG_INVERTER ? 30 : 6
 precond_param.Nsteps    	       = 1
 
@@ -188,7 +188,7 @@ QJuliaSolvers.solve(sol, src, mdagm, mdagm, solv_param, K)
 r = t_odd.v
 mdagm(r, x_even.v)
 r  .=@. x_odd.v - r
-r2 = dot(r, r) 
+r2 = dot(r, r)
 println("True residual: ", sqrt(real(r2)))
 
 #reconstruct source/solution:
@@ -201,4 +201,3 @@ end
 
 QUDARoutines.endQuda_qj()
 MPI.Finalize()
-

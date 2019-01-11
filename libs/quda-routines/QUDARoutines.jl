@@ -5,7 +5,7 @@ import QJuliaEnums
 
 ################# Interface functions, found in quda.h #######################
 #be sure that a directory with libquda.so is in LD_LIBRARY_PATH
- 
+
    initCommsGridQuda_qj(len, gridsize, lex_rank_from_coords, fdata ) = ccall((:initCommsGridQuda, "libquda"), Cvoid, (Int32, Ptr{Int32}, Ptr{Cvoid}, Ptr{Cvoid}, ), len, gridsize, lex_rank_from_coords, fdata )
 
    initQudaDevice_qj(dev) = ccall((:initQudaDevice, "libquda"), Cvoid, (Int32,), dev)
@@ -14,7 +14,7 @@ import QJuliaEnums
 
    initQuda_qj(dev) = ccall((:initQuda, "libquda"), Cvoid, (Int32,), dev)
 
-   endQuda_qj() = ccall((:endQuda, "libquda"), Cvoid, (), ) 
+   endQuda_qj() = ccall((:endQuda, "libquda"), Cvoid, (), )
 
    printQudaGaugeParam_qj(param) = ccall((:printQudaGaugeParam, "libquda"), Cvoid, (Ref{QJuliaInterface.QJuliaGaugeParam_qj}, ), param)
 
@@ -22,17 +22,21 @@ import QJuliaEnums
 
    loadGaugeQuda_qj(gptr, param) = ccall((:loadGaugeQuda, "libquda"), Cvoid, (Ptr{Cvoid}, Ref{QJuliaInterface.QJuliaGaugeParam_qj}, ), gptr, param)
 
-   freeGaugeQuda_qj() = ccall((:freeGaugeQuda, "libquda"), Cvoid, (), ) 
+   freeGaugeQuda_qj() = ccall((:freeGaugeQuda, "libquda"), Cvoid, (), )
 
    saveGaugeQuda_qj(gptr, param) = ccall((:saveGaugeQuda, "libquda"), Cvoid, (Ptr{Cvoid}, Ref{QJuliaInterface.QJuliaGaugeParam_qj}, ), gptr, param)
 
    loadCloverQuda_qj(clvptr, clvptr_inv, param) = ccall((:loadCloverQuda, "libquda"), Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}, Ref{QJuliaInterface.QJuliaInvertParam_qj}, ), clvptr, clvptr_inv, param)
 
-   freeCloverQuda_qj() = ccall((:freeCloverQuda, "libquda"), Cvoid, (), ) 
+   freeCloverQuda_qj() = ccall((:freeCloverQuda, "libquda"), Cvoid, (), )
 
    plaqQuda_qj(plaq) = ccall((:plaqQuda, "libquda"), Cvoid, (Ref{Cdouble}, ), plaq)
 
    invertQuda_qj(xptr, yptr, param) = ccall((:invertQuda, "libquda"), Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}, Ref{QJuliaInterface.QJuliaInvertParam_qj}, ), xptr, yptr, param)
+
+   newMultigridQuda_qj(param) = ccall((:newMultigridQuda, "libquda"), Ptr(Cvoid), (Ref{QJuliaInterface.QJuliaMultigridParam_qj}, ), param)
+
+   destroyMultigridQuda_qj(mg_instance) = ccall((:destroyMultigridQuda, "libquda"), Cvoid, (Ptr{Cvoid},), mg_instance)
 
    dslashQuda_qj(outptr, inptr, param, parity) = ccall((:dslashQuda, "libquda"), Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}, Ref{QJuliaInterface.QJuliaInvertParam_qj}, Ref{QJuliaEnums.QJuliaParity_qj},), outptr, inptr, param, parity)
 
@@ -47,7 +51,7 @@ import QJuliaEnums
    saveGaugeFieldQuda_qj(ogptr, igptr, param) = ccall((:saveGaugeFieldQuda, "libquda"), Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Ref{QJuliaInterface.QJuliaGaugeParam_qj}, ), ogptr, igptr, param)
 
 
-   destroyGaugeFieldQuda_qj() = ccall((:destroyGaugeFieldQuda, "libquda"), Cvoid, (Ptr{Cvoid},), gptr ) 
+   destroyGaugeFieldQuda_qj() = ccall((:destroyGaugeFieldQuda, "libquda"), Cvoid, (Ptr{Cvoid},), gptr )
 
    gaussGaugeQuda_qj(seed) = ccall((:gaussGaugeQuda, "libquda"), Cvoid, (Clong,), seed)
 

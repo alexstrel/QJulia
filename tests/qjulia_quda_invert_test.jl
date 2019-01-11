@@ -1,8 +1,8 @@
-#!/usr/bin/env julia 
+#!/usr/bin/env julia
 
 #load path to qjulia home directory
-push!(LOAD_PATH, string(ENV["QJULIA_HOME"],"/core"))
-push!(LOAD_PATH, string(ENV["QJULIA_HOME"],"/libs/quda-routines"))
+push!(LOAD_PATH, joinpath(@__DIR__, "..", "core"))
+push!(LOAD_PATH, joinpath(@__DIR__, "..", "libs/quda-routines"))
 
 import QJuliaUtils
 import QJuliaEnums
@@ -32,14 +32,14 @@ const lx = 16
 const ly = 16
 const lz = 16
 const lt = 32
-const ls = 1 
+const ls = 1
 
 const dim = 4
 const vol = lx*ly*lz*lt*ls
 
 #field latt point sizes
-const ssize = 12 
-const gsize = 9  
+const ssize = 12
+const gsize = 9
 
 const splen = vol*ssize
 const gflen = vol*gsize
@@ -86,7 +86,7 @@ y_face_size = gauge_param.X[1]*gauge_param.X[3]*Int(gauge_param.X[4]/2);
 z_face_size = gauge_param.X[1]*gauge_param.X[2]*Int(gauge_param.X[4]/2);
 t_face_size = gauge_param.X[1]*gauge_param.X[2]*Int(gauge_param.X[3]/2);
 
-gauge_param.ga_pad = max(x_face_size, y_face_size, z_face_size, t_face_size);
+gauge_param.ga_pad = max(x_face_size, y_face_size, z_face_size, t_face_size)
 
 @time QUDARoutines.loadGaugeQuda_qj(gauge, gauge_param)
 
@@ -105,7 +105,7 @@ inv_param.tol = 1e-10
 
 inv_param.inv_type = QJuliaEnums.QJULIA_CG_INVERTER
 inv_param.cuda_prec = QJuliaEnums.QJULIA_DOUBLE_PRECISION
-inv_param.cuda_prec_sloppy = QJuliaEnums.QJULIA_HALF_PRECISION 
+inv_param.cuda_prec_sloppy = QJuliaEnums.QJULIA_HALF_PRECISION
 #inv_param.solve_type = QJuliaEnums.QJULIA_DIRECT_PC_SOLVE
 inv_param.solve_type = QJuliaEnums.QJULIA_NORMOP_PC_SOLVE
 

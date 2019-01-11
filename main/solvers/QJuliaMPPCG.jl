@@ -48,16 +48,18 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
     mixed = (param.dtype_sloppy != param.dtype)
 
+    if mixed == true; println("Running mixed precision solver.");end
+
     local r   = Vector{param.dtype_sloppy}(undef, length(x))
     local y   = Vector{param.dtype_sloppy}(undef, length(x))
     # now allocate sloppy fields
-    local rSloppy    = mixed == true ? Vector{param.dtype_sloppy}(undef, length(b)) : r
-    local rSloppyOld = typeof(rSloppy)(undef, length(rSloppy))
+    local rSloppy    = mixed == true ? zeros(param.dtype_sloppy, length(b)) : r
+    local rSloppyOld = zeros(param.dtype_sloppy, length(rSloppy))
     # search vector and Ap result
-    local p       = typeof(rSloppy)(undef, length(rSloppy))
-    local s       = typeof(rSloppy)(undef, length(rSloppy))
+    local p       = zeros(param.dtype_sloppy, length(rSloppy))
+    local s       = zeros(param.dtype_sloppy, length(rSloppy))
     #  iterated sloppy solution vector
-    local xSloppy = param.use_sloppy_partial_accumulator == true ? x : typeof(rSloppy)(undef, length(rSloppy))
+    local xSloppy = param.use_sloppy_partial_accumulator == true ? x : zeros(param.dtype_sloppy, length(rSloppy))
 
     b2 = norm2(b)  #Save norm of b
     r2 = 0.0; r2_old = 0.0     #if zero source then we will exit immediately doing no work
@@ -69,13 +71,12 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
       r2 = norm2(r)
       y .=@. x
     else
-      r2 = b2
+      r2 = b2;
       r .=@. b
       y .=@. 0.0
     end
     #
-    x  .=@. 0.0; xSloppy .=@. 0.0
-    cpy(rSloppy, r)
+    cpy(rSloppy, r); x  .=@. 0.0
     #
     ϵ  = eps(param.dtype_sloppy) / 2.0; ϵh = eps(param.dtype) / 2.0
     #
@@ -90,7 +91,8 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
         p  .=@. extra_args[1]
       end
     else
-      p .=@. r
+      #p .=@. r #moved to the main loop
+      #p .=@. 0.0
     end
     # initialize CG parameters
     α = 0.0; β = 0.0; pAp = 0.0
@@ -101,7 +103,7 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
       r2_old = extra_args[2]
       rp = rdot(rSloppy, p) / r2
       β  = r2 / r2_old
-      p .=@. rSloppy + β*p
+      #p .=@. rSloppy + β*p #moved to the main loop
     end
 
     # Relupdates parameters:
@@ -123,6 +125,9 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
     # Main loop:
     while (k < param.maxiter && converged == false)
+      # Update search vector
+      p  .=@. rSloppy + β*p
+      #
       MatSloppy(s, p)
       #
       r2_old = r2
@@ -179,9 +184,6 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
         relUpdates += 1
       end
-
-      # Update search vector
-      p  .=@. rSloppy + β*p
       # Check convergence:
       converged = (r2 > stop) ? false : true
       # Update iter index

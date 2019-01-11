@@ -1,7 +1,8 @@
-#!/usr/bin/env julia 
+#!/usr/bin/env julia
 
 #load path to qjulia home directory
-push!(LOAD_PATH, string(ENV["QJULIA_HOME"],"/matrix"))
+push!(LOAD_PATH, joinpath(@__DIR__, "..", "matrix"))
+
 
 using MatrixBase
 using MatrixMarket
