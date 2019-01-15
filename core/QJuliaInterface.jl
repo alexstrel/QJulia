@@ -528,99 +528,99 @@ module QJuliaInterface
       # Reference to invert param structure
 	  invert_param::QJuliaInvertParam_qj
 
-      # Number of multigrid levels
-      n_level::Cint
+	  # Number of multigrid levels
+	  n_level::Cint
 
-      # Geometric block sizes to use on each level
-      geo_block_size::NTuple{Cint, QJULIA_MAX_DIM*QJULIA_MAX_MG_LEVEL} # [QUDA_MAX_MG_LEVEL][QUDA_MAX_DIM] -> QJULIA_MAX_DIM*QJULIA_MAX_MG_LEVEL
+	  # Geometric block sizes to use on each level
+	  geo_block_size::NTuple{QJULIA_MAX_DIM*QJULIA_MAX_MG_LEVEL, Cint} # [QUDA_MAX_MG_LEVEL][QUDA_MAX_DIM] -> QJULIA_MAX_DIM*QJULIA_MAX_MG_LEVEL
 
-      # Spin block sizes to use on each level
-      spin_block_size::NTuple{Cint, QJULIA_MAX_MG_LEVEL}
+	  # Spin block sizes to use on each level
+	  spin_block_size::NTuple{QJULIA_MAX_MG_LEVEL, Cint}
 
-      # Number of null-space vectors to use on each level
-      n_vec::NTuple{Cint, QJULIA_MAX_MG_LEVEL}
+	  # Number of null-space vectors to use on each level
+	  n_vec::NTuple{QJULIA_MAX_MG_LEVEL, Cint}
 
-      # Precision to store the null-space vectors in (post block orthogonalization)
-      precision_null::NTuple{QJuliaEnums.QJuliaPrecision_qj, QJULIA_MAX_MG_LEVEL}
+	  # Precision to store the null-space vectors in (post block orthogonalization)
+	  precision_null::NTuple{QJULIA_MAX_MG_LEVEL, QJuliaEnums.QJuliaPrecision_qj}
 
-      # Verbosity on each level of the multigrid
-      verbosity::NTuple{QJuliaEnums.QJuliaVerbosity_qj, QJULIA_MAX_MG_LEVEL}
+	  # Verbosity on each level of the multigrid
+	  verbosity::NTuple{QJULIA_MAX_MG_LEVEL, QJuliaEnums.QJuliaVerbosity_qj}
 
-      # Inverter to use in the setup phase
-      setup_inv_type::NTuple{QJuliaEnums.QJuliaInverterType_qj, QJULIA_MAX_MG_LEVEL}
+	  # Inverter to use in the setup phase
+	  setup_inv_type::NTuple{QJULIA_MAX_MG_LEVEL, QJuliaEnums.QJuliaInverterType_qj}
 
-      # Number of setup iterations
-      num_setup_iter::NTuple{Cint, QJULIA_MAX_MG_LEVEL}
+	  # Number of setup iterations
+	  num_setup_iter::NTuple{QJULIA_MAX_MG_LEVEL, Cint}
 
-      # Tolerance to use in the setup phase
-      setup_tol::NTuple{Cdouble, QJULIA_MAX_MG_LEVEL}
+	  # Tolerance to use in the setup phase
+	  setup_tol::NTuple{QJULIA_MAX_MG_LEVEL, Cdouble}
 
-      # Maximum number of iterations for each setup solver
-      setup_maxiter::NTuple{Cint, QJULIA_MAX_MG_LEVEL}
+	  # Maximum number of iterations for each setup solver
+	  setup_maxiter::NTuple{QJULIA_MAX_MG_LEVEL, Cint}
 
-      # Maximum number of iterations for refreshing the null-space vectors *
-      setup_maxiter_refresh::NTuple{Cint, QJULIA_MAX_MG_LEVEL}
+	  # Maximum number of iterations for refreshing the null-space vectors
+	  setup_maxiter_refresh::NTuple{QJULIA_MAX_MG_LEVEL, Cint}
 
-      # Null-space type to use in the setup phase
-      setup_type::QJuliaEnums.QJuliaSetupType_qj
+	  # Null-space type to use in the setup phase
+	  setup_type::QJuliaEnums.QJuliaSetupType_qj
 
-      # Pre orthonormalize vectors in the setup phase
-      pre_orthonormalize::QJuliaEnums.QJuliaBoolean_qj
+	  # Pre orthonormalize vectors in the setup phase
+	  pre_orthonormalize::QJuliaEnums.QJuliaBoolean_qj
 
-      # Post orthonormalize vectors in the setup phase
-      post_orthonormalize::QJuliaEnums.QJuliaBoolean_qj
+	  # Post orthonormalize vectors in the setup phase
+	  post_orthonormalize::QJuliaEnums.QJuliaBoolean_qj
 
-      # The solver that wraps around the coarse grid correction and smoother
-      coarse_solver::NTuple{QJuliaEnums.QJuliaInverterType_qj, QJULIA_MAX_MG_LEVEL}
+	  # The solver that wraps around the coarse grid correction and smoother
+	  coarse_solver::NTuple{QJULIA_MAX_MG_LEVEL, QJuliaEnums.QJuliaInverterType_qj}
 
-      # Tolerance for the solver that wraps around the coarse grid correction and smoother
-      coarse_solver_tol::NTuple{Cdouble, QJULIA_MAX_MG_LEVEL}
+	  # Tolerance for the solver that wraps around the coarse grid correction and smoother
+	  coarse_solver_tol::NTuple{QJULIA_MAX_MG_LEVEL, Cdouble}
 
-      # Maximum number of iterations for the solver that wraps around the coarse grid correction and smoother
-      coarse_solver_maxiter::NTuple{Cdouble, QJULIA_MAX_MG_LEVEL} #Warning : will be changed to Cint!
+	  # Maximum number of iterations for the solver that wraps around the coarse grid correction and smoother
+	  coarse_solver_maxiter::NTuple{QJULIA_MAX_MG_LEVEL, Cdouble} #Warning : will be changed to Cint!
 
-      # Smoother to use on each level
-      smoother::NTuple{QJuliaEnums.QJuliaInverterType_qj, QJULIA_MAX_MG_LEVEL}
+	  # Smoother to use on each level
+	  smoother::NTuple{QJULIA_MAX_MG_LEVEL, QJuliaEnums.QJuliaInverterType_qj}
 
-      # Tolerance to use for the smoother / solver on each level
-      smoother_tol::NTuple{Cdouble, QJULIA_MAX_MG_LEVEL}
+	  # Tolerance to use for the smoother / solver on each level
+	  smoother_tol::NTuple{QJULIA_MAX_MG_LEVEL, Cdouble}
 
-      # Number of pre-smoother applications on each level
-      nu_pre::NTuple{Cint, QJULIA_MAX_MG_LEVEL}
+	  # Number of pre-smoother applications on each level
+	  nu_pre::NTuple{QJULIA_MAX_MG_LEVEL, Cint}
 
-      # Number of post-smoother applications on each level
-      nu_post::NTuple{Cint, QJULIA_MAX_MG_LEVEL}
+	  # Number of post-smoother applications on each level
+	  nu_post::NTuple{QJULIA_MAX_MG_LEVEL, Cint}
 
-      # Over/under relaxation factor for the smoother at each level
-      omega::NTuple{Cdouble, QJULIA_MAX_MG_LEVEL}
+	  # Over/under relaxation factor for the smoother at each level
+	  omega::NTuple{QJULIA_MAX_MG_LEVEL, Cdouble}
 
-      # Precision to use for halo communication in the smoother
-      smoother_halo_precision::NTuple{QJuliaEnums.QJuliaPrecision_qj, QJULIA_MAX_MG_LEVEL}
+	  # Precision to use for halo communication in the smoother
+	  smoother_halo_precision::NTuple{QJULIA_MAX_MG_LEVEL, QJuliaEnums.QJuliaPrecision_qj}
 
-      # Whether to use additive or multiplicative Schwarz preconditioning in the smoother
-      smoother_schwarz_type::NTuple{QJuliaEnums.QJuliaSchwarzType_qj, QJULIA_MAX_MG_LEVEL}
+	  # Whether to use additive or multiplicative Schwarz preconditioning in the smoother
+	  smoother_schwarz_type::NTuple{QJULIA_MAX_MG_LEVEL, QJuliaEnums.QJuliaSchwarzType_qj}
 
-      # Number of Schwarz cycles to apply
-      smoother_schwarz_cycle::NTuple{Cint, QJULIA_MAX_MG_LEVEL}
+	  # Number of Schwarz cycles to apply
+	  smoother_schwarz_cycle::NTuple{QJULIA_MAX_MG_LEVEL, Cint}
 
       # The type of residual to send to the next coarse grid, and thus the
   	  # type of solution to receive back from this coarse grid
-      coarse_grid_solution_type::NTuple{QJuliaEnums.QJuliaSolutionType_qj, QJULIA_MAX_MG_LEVEL}
+      coarse_grid_solution_type::NTuple{QJULIA_MAX_MG_LEVEL, QJuliaEnums.QJuliaSolutionType_qj}
 
       # The type of smoother solve to do on each grid (e/o preconditioning or not)
-      smoother_solve_type::NTuple{QJuliaEnums.QJuliaSolveType_qj, QJULIA_MAX_MG_LEVEL}
+      smoother_solve_type::NTuple{QJULIA_MAX_MG_LEVEL, QJuliaEnums.QJuliaSolveType_qj}
 
       # The type of multigrid cycle to perform at each level
-      cycle_type::NTuple{QJuliaEnums.QJuliaMultigridCycleType_qj, QJULIA_MAX_MG_LEVEL}
+      cycle_type::NTuple{QJULIA_MAX_MG_LEVEL, QJuliaEnums.QJuliaMultigridCycleType_qj}
 
       # Whether to use global reductions or not for the smoother / solver at each level
-      global_reduction::NTuple{QJuliaEnums.QJuliaBoolean_qj, QJULIA_MAX_MG_LEVEL}
+      global_reduction::NTuple{QJULIA_MAX_MG_LEVEL, QJuliaEnums.QJuliaBoolean_qj}
 
       # Location where each level should be done
-      location::NTuple{QJuliaEnums.QJuliaFieldLocation_qj, QJULIA_MAX_MG_LEVEL}
+      location::NTuple{QJULIA_MAX_MG_LEVEL, QJuliaEnums.QJuliaFieldLocation_qj}
 
       # Location where the coarse-operator construction will be computedn
-      setup_location::NTuple{QJuliaEnums.QJuliaFieldLocation_qj, QJULIA_MAX_MG_LEVEL}
+      setup_location::NTuple{QJULIA_MAX_MG_LEVEL, QJuliaEnums.QJuliaFieldLocation_qj}
 
       # Minimize device memory allocations during the adaptive setup,
         #  placing temporary fields in mapped memory instad of device
@@ -637,10 +637,10 @@ module QJuliaInterface
       run_verify::QJuliaEnums.QJuliaBoolean_qj
 
       # Filename prefix where to load the null-space vectors (currently just placeholders)
-      vec_infile::NTuple{Int8, 256}
+      vec_infile::NTuple{256, Int8}
 
       # Filename prefix for where to save the null-space vectors (currently just placeholders)
-      vec_outfile::NTuple{Int8, 256}
+      vec_outfile::NTuple{256, Int8}
 
       # The Gflops rate of the multigrid solver setup
       gflops::Cdouble
@@ -649,25 +649,25 @@ module QJuliaInterface
       secs::Cdouble
 
       # Multiplicative factor for the mu parameter
-      mu_factor::NTuple{Cdouble, QJULIA_MAX_MG_LEVEL}
+      mu_factor::NTuple{QJULIA_MAX_MG_LEVEL, Cdouble}
 
       #defualt constructor
       function QJuliaMultigridParam_qj( invert_param::QJuliaInvertParam_qj )
                # default number of levels
-			   nlevel = 3
+			   nlevel = Cint(3)
 
 		       # setup geom block size
-		       geo_block_size = NTuple{QJULIA_MAX_DIM*QJULIA_MAX_MG_LEVEL, Cint}(ntuple(i->1, QJULIA_MAX_DIM*QJULIA_MAX_MG_LEVEL))
+		       geo_block_size = NTuple{QJULIA_MAX_DIM*QJULIA_MAX_MG_LEVEL, Cint}(ntuple(i->Cint(1), QJULIA_MAX_DIM*QJULIA_MAX_MG_LEVEL))
 			   # fill up default values (remember column major format):
-			   for i in 0:3; [geo_block_size[QJULIA_MAX_DIM*i+j] = 4 for j = 1:4];end
+			   for i in 0:3; [geo_block_size[QJULIA_MAX_DIM*i+j] = Cint(4) for j = 1:4];end
 
 			   # setup default spin block size
-			   spin_block_size    = NTuple{QJULIA_MAX_MG_LEVEL, Cint}(ntuple(i->1, QJULIA_MAX_MG_LEVEL))
-			   spin_block_size[1] = 2
+			   spin_block_size    = NTuple{QJULIA_MAX_MG_LEVEL, Cint}(ntuple(i->Cint(1), QJULIA_MAX_MG_LEVEL))
+			   spin_block_size[1] = Cint(2)
 
 			   # setup default null space vectors for each level
-			   n_vec    = NTuple{QJULIA_MAX_MG_LEVEL, Cint}(ntuple(i->1, QJULIA_MAX_MG_LEVEL))
-			   n_vec[1] = 24; n_vec[2] = 24
+			   n_vec    = NTuple{QJULIA_MAX_MG_LEVEL, Cint}(ntuple(i->Cint(1), QJULIA_MAX_MG_LEVEL))
+			   n_vec[1] = Cint(24); n_vec[2] = Cint(24)
 
 			   # setup null space precisions
 			   prec_null= NTuple{QJULIA_MAX_MG_LEVEL, QJuliaEnums.QJuliaPrecision_qj}(ntuple(i->QJuliaEnums.QJULIA_INVALID_PRECISION, QJULIA_MAX_MG_LEVEL))
@@ -679,16 +679,16 @@ module QJuliaInterface
 		       setup_inv_type = NTuple{QJULIA_MAX_MG_LEVEL, QJuliaEnums.QJuliaInverterType_qj}(ntuple(i->QJuliaEnums.QJULIA_INVALID_INVERTER, QJULIA_MAX_MG_LEVEL))
 
 		       # fill up number of setup iterations
-		       num_setup_iter = NTuple{QJULIA_MAX_MG_LEVEL, Cint}(ntuple(i->100, QJULIA_MAX_MG_LEVEL))
+		       num_setup_iter = NTuple{QJULIA_MAX_MG_LEVEL, Cint}(ntuple(i->Cint(100), QJULIA_MAX_MG_LEVEL))
 
 		       # fill up tolerance to use in the setup phase
 		       setup_tol = NTuple{QJULIA_MAX_MG_LEVEL, Cdouble}(ntuple(i->1e-4, QJULIA_MAX_MG_LEVEL))
 
 		       # fill up maximum number of iterations for each setup solver
-		       setup_maxiter = NTuple{QJULIA_MAX_MG_LEVEL, Cint}(ntuple(i->100, QJULIA_MAX_MG_LEVEL))
+		       setup_maxiter = NTuple{QJULIA_MAX_MG_LEVEL, Cint}(ntuple(i->Cint(100), QJULIA_MAX_MG_LEVEL))
 
 		       # fill up maximum number of iterations for refreshing the null-space vectors *
-		       setup_maxiter_refresh = NTuple{QJULIA_MAX_MG_LEVEL, Cint}(ntuple(i->1, QJULIA_MAX_MG_LEVEL))
+		       setup_maxiter_refresh = NTuple{QJULIA_MAX_MG_LEVEL, Cint}(ntuple(i->Cint(1), QJULIA_MAX_MG_LEVEL))
 
 		       # Null-space type to use in the setup phase
 		       setup_type = QJuliaEnums.QJULIA_NULL_VECTOR_SETUP
@@ -715,10 +715,10 @@ module QJuliaInterface
 		       smoother_tol = NTuple{QJULIA_MAX_MG_LEVEL, Cdouble}(ntuple(i->1e-2, QJULIA_MAX_MG_LEVEL))
 
 		       # Set number of pre-smoother applications on each level
-		       nu_pre = NTuple{QJULIA_MAX_MG_LEVEL, Cint}(ntuple(i->4, QJULIA_MAX_MG_LEVEL))
+		       nu_pre = NTuple{QJULIA_MAX_MG_LEVEL, Cint}(ntuple(i->Cint(4), QJULIA_MAX_MG_LEVEL))
 
 		       # Set number of post-smoother applications on each level
-		       nu_post = NTuple{QJULIA_MAX_MG_LEVEL, Cint}(ntuple(i->4, QJULIA_MAX_MG_LEVEL))
+		       nu_post = NTuple{QJULIA_MAX_MG_LEVEL, Cint}(ntuple(i->Cint(4), QJULIA_MAX_MG_LEVEL))
 
 		       # Over/under relaxation factor for the smoother at each level
 		       omega = NTuple{QJULIA_MAX_MG_LEVEL, Cdouble}(ntuple(i->1.0, QJULIA_MAX_MG_LEVEL))
@@ -730,7 +730,7 @@ module QJuliaInterface
 		       smoother_schwarz_type  = NTuple{QJULIA_MAX_MG_LEVEL, QJuliaEnums.QJuliaSchwarzType_qj}(ntuple(i->QJuliaEnums.QJULIA_INVALID_SCHWARZ, QJULIA_MAX_MG_LEVEL))
 
 		       # Number of Schwarz cycles to apply
-		       smoother_schwarz_cycle = NTuple{QJULIA_MAX_MG_LEVEL, Cint}(ntuple(i->1, QJULIA_MAX_MG_LEVEL))
+		       smoother_schwarz_cycle = NTuple{QJULIA_MAX_MG_LEVEL, Cint}(ntuple(i->Cint(1), QJULIA_MAX_MG_LEVEL))
 
 		       # The type of residual to send to the next coarse grid, and thus the
 		   	  # type of solution to receive back from this coarse grid
@@ -821,6 +821,7 @@ module QJuliaInterface
 					secs,
 					mu_factor
 			   )
+         end #function QJuliaMultigridParam_qj
 
       end#QJuliaMultigridParam
 
