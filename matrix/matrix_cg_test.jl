@@ -13,8 +13,9 @@ using QJuliaSolvers
 using QJuliaEnums
 using MPI
 
-matrix_path = "/home/astrel/data/nasa2146/nasa2146.mtx"
-#matrix_path = "/home/astrel/data/nasa2910/nasa2910.mtx"
+#matrix_path = "/home/alex/data/bcsstk15/bcsstk15.mtx"
+#matrix_path = "/home/alex/data/nasa2146/nasa2146.mtx"
+matrix_path = "/home/alex/data/nasa2910/nasa2910.mtx"
 #matrix_path = "/home/astrel/data/nasa4704/nasa4704.mtx"
 #matrix_path = "/home/astrel/data/smt/smt.mtx"
 
@@ -42,7 +43,12 @@ z .= 0.0
 b .= rand(data_type, csrM.Dims[2])
 
 M(b,x)        = MatrixBase.csrmv(b, csrM, x)
-Msloppy(b,x)  = MatrixBase.csrmv(b, csrMsloppy, x)
+
+if prec_sloppy != prec
+  Msloppy(b,x)  = MatrixBase.csrmv(b, csrMsloppy, x)
+else
+  Msloppy = M
+end
 #or just:
 #M=MatrixMarket.mmread(matrix_path)
 
@@ -54,7 +60,7 @@ solv_param.inv_type               = QJuliaEnums.QJULIA_PCG_INVERTER
 solv_param.inv_type_precondition  = QJuliaEnums.QJULIA_INVALID_INVERTER
 solv_param.tol                    = 1e-8
 #
-solv_param.maxiter                = 600
+solv_param.maxiter                = 60000
 solv_param.Nsteps                 = 2
 
 @time QJuliaSolvers.solve(x, b, M, Msloppy, solv_param)

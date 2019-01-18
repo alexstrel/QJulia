@@ -19,8 +19,8 @@ MPI.Init()
 Random.seed!(2018)
 
 #matrix_path = "/home/astrel/data/nasa2146/nasa2146.mtx"
-#matrix_path = "/home/astrel/data/nasa2910/nasa2910.mtx"
-matrix_path = "/home/astrel/data/nasa4704/nasa4704.mtx"
+matrix_path = "/home/alex/data/nasa2910/nasa2910.mtx"
+#matrix_path = "/home/astrel/data/nasa4704/nasa4704.mtx"
 #matrix_path = "/home/astrel/data/smt/smt.mtx"
 
 csrM = MatrixBase.CSRMat{Float64}(matrix_path)
@@ -61,7 +61,7 @@ K(pPre, rPre) = QJuliaSolvers.solve(pPre, rPre, Mpre, Mpre, pre_solv_param)
 
 solv_param = QJuliaSolvers.QJuliaSolverParam_qj()
 # Set up parameters
-solv_param.inv_type               = QJuliaEnums.QJULIA_PCG_INVERTER
+solv_param.inv_type               = QJuliaEnums.QJULIA_PIPEPCG_INVERTER
 solv_param.dtype                  = data_type
 solv_param.inv_type_precondition  = pre_solv_param.inv_type
 #solv_param.inv_type_precondition  = QJuliaEnums.QJULIA_INVALID_INVERTER

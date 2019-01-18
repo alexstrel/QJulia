@@ -34,7 +34,7 @@ import QJuliaEnums
 
    invertQuda_qj(xptr, yptr, param) = ccall((:invertQuda, "libquda"), Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}, Ref{QJuliaInterface.QJuliaInvertParam_qj}, ), xptr, yptr, param)
 
-   newMultigridQuda_qj(param) = ccall((:newMultigridQuda, "libquda"), Ptr(Cvoid), (Ref{QJuliaInterface.QJuliaMultigridParam_qj}, ), param)
+   newMultigridQuda_qj(param) = ccall((:newMultigridQuda, "libquda"), Ptr{Cvoid}, (Ref{QJuliaInterface.QJuliaMultigridParam_qj}, ), param)
 
    destroyMultigridQuda_qj(mg_instance) = ccall((:destroyMultigridQuda, "libquda"), Cvoid, (Ptr{Cvoid},), mg_instance)
 

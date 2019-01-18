@@ -144,6 +144,9 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
     QJuliaReduce.reset_blas_global_reduction()
 
+    # Return computed matrix norm
+    return Anorm
+
 end #MR
 
 end #QJuliaLanMR

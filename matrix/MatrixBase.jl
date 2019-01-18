@@ -25,7 +25,7 @@ mutable struct CSRMat{T<:Any} <: GenericCSRMat
   is_complex::Bool
 
   # nrows, ncols
-  Dims::NTuple{2, Int} 
+  Dims::NTuple{2, Int}
 
   # Iterators
   X::Tuple{Base.OneTo{Int64},Base.OneTo{Int64}}
@@ -33,8 +33,11 @@ mutable struct CSRMat{T<:Any} <: GenericCSRMat
   # Data arrays
   csrVals::Vector{T}
   csrRows::Vector{Int32}
-  csrCols::Vector{Int32} 
+  csrCols::Vector{Int32}
   diagIdx::Vector{Int32} #for ILU etc.
+
+  # Avg number of nz elements in a row
+  N::Int
 
   function CSRMat{T}(path::String) where T
 
@@ -46,7 +49,7 @@ mutable struct CSRMat{T<:Any} <: GenericCSRMat
     (nrows, ncols) = size(M)
     if nrows != ncols; error("Rectangle matrices are not allowed"); end
 
-    (rows, cols) = axes(M) 
+    (rows, cols) = axes(M)
 
     prec = eltype(M)
 
@@ -70,28 +73,33 @@ mutable struct CSRMat{T<:Any} <: GenericCSRMat
     c = 1
     d = 1
 
+    avg_row_nnz = 0
+    #
     for j in rows
-      row_nnz = 0 
+      row_nnz = 0
       for i in cols
         if M[j,i] != 0.0
 
           csrVals[e] = convert(T, M[j,i])
           csrCols[c] = i
-          if j == i  
+          if j == i
             diagIdx[d] = i; d +=1
           end #store diag index
-           
+
           row_nnz += 1; e += 1; c += 1
 
         end #if
       end #for i
       csrRows[j+1] = csrRows[j] + row_nnz
+
+      avg_row_nnz += row_nnz
     end #for j
 
     if csrRows[nrows+1] != nnz+1; error("Conversion failed, incorrect number of nnz detected."); end
 
+    avg_row_nnz = round( Float64(avg_row_nnz) / Float64(nrows))
     # call constructor
-    new(is_complex, (nrows, ncols), (rows, cols), csrVals, csrRows, csrCols, view(diagIdx, 1:(d-1)))
+    new(is_complex, (nrows, ncols), (rows, cols), csrVals, csrRows, csrCols, view(diagIdx, 1:(d-1)), avg_row_nnz)
 
   end #CSRMat{T}
 
@@ -101,14 +109,14 @@ end #CSRMat
 function print_CSRMat_info(m::GenericCSRMat)
   println(" ")
   println("General info for ", typeof(m), ": ")
-  println("Element type : ", typeof(m.csrVals[1]),", number of nnz : ", (m.csrRows[m.Dims[1]+1] - 1) , ", number of rows : ", m.Dims[1], ", number of cols : ", m.Dims[2])
+  println("Element type : ", typeof(m.csrVals[1]),", number of nnz : ", (m.csrRows[m.Dims[1]+1] - 1) , ", number of rows : ", m.Dims[1], ", number of cols : ", m.Dims[2], " average number of nz elements in a row ", m.N)
 end
 
-function csrmv(b::AbstractArray, m::GenericCSRMat, x::AbstractArray) 
-  
+function csrmv(b::AbstractArray, m::GenericCSRMat, x::AbstractArray)
+
 @threads  for j in m.X[1]
 #  for j in m.X[1]
-    offset  = m.csrRows[j] - m.csrRows[1] 
+    offset  = m.csrRows[j] - m.csrRows[1]
     row_nnz = m.csrRows[j+1] - m.csrRows[j]
     b[j]    = 0.0
 
@@ -121,12 +129,12 @@ function csrmv(b::AbstractArray, m::GenericCSRMat, x::AbstractArray)
 
 end
 
-function csrmv(m::GenericCSRMat, x::AbstractArray) 
-  
+function csrmv(m::GenericCSRMat, x::AbstractArray)
+
    b = zero(typeof(x)(undef, length(x)))
 @threads  for j in m.X[1]
 #  for j in m.X[1]
-    offset  = m.csrRows[j] - m.csrRows[1] 
+    offset  = m.csrRows[j] - m.csrRows[1]
     row_nnz = m.csrRows[j+1] - m.csrRows[j]
     b[j]    = 0.0
 
@@ -149,14 +157,14 @@ function ilu0(M::GenericCSRMat)
 
   iw  = Vector{Int}(undef, m.Dims[1])
 
-  for i in m.X[1] 
+  for i in m.X[1]
     iw .=@. -1 #elementwise assingment
 
     for k in m.csrRows[i]:(m.csrRows[i+1] - 1); iw[m.csrCols[k]] = k; end
 
     j = m.csrRows[i]
 
-    @do begin   
+    @do begin
 
       jrow = m.csrRows[j]
       if i <= jrow; break; end
@@ -165,8 +173,8 @@ function ilu0(M::GenericCSRMat)
 
       tl = m.csrVals[j]
 
-      for jj in (m.diagIdx[jrow] + 1):(ia[jrow+1] - 1) 
-      
+      for jj in (m.diagIdx[jrow] + 1):(ia[jrow+1] - 1)
+
         jw = iw[m.csrCols[jj]]
         if jw != -1; l[jw] -= (tl * l[jj]); end
 
@@ -177,14 +185,14 @@ function ilu0(M::GenericCSRMat)
 
     m.diagIdx[i] = j
 
-    if jrow != i 
+    if jrow != i
       error("ILU_CR - Fatal error! JROW != I, JROW = ", jrow,", I = ", i)
-    end 
-
-    if  m.csrVals[j] == 0.0 
-      error("ILU_CR - Fatal error! Zero pivot on step I = ", i,", L[j] = 0.0 for j = ", j) 
     end
-    
+
+    if  m.csrVals[j] == 0.0
+      error("ILU_CR - Fatal error! Zero pivot on step I = ", i,", L[j] = 0.0 for j = ", j)
+    end
+
     m.csrVals[j] = 1.0 / m.csrVals[j];
   end #for i
 
@@ -197,7 +205,7 @@ end #ilu0
 function ilu0(out::AbstractArray, m::GenericCSRMat, inp::AbstractArray)
 
   out .=@. inp
-   
+
 #  Solve L * w = w where L is unit lower triangular.
 
   for i in 2:length(tmp)
@@ -206,8 +214,8 @@ function ilu0(out::AbstractArray, m::GenericCSRMat, inp::AbstractArray)
 
 #  Solve U * w = w, where U is upper triangular.
 
-  for i in length(tmp):-1:1 
-    for j in (m.diagIdx[i] + 1):m.csrRows[i+1]; out[i] -= m.csrVals[j]*out[m.csrCols[j]]; end 
+  for i in length(tmp):-1:1
+    for j in (m.diagIdx[i] + 1):m.csrRows[i+1]; out[i] -= m.csrVals[j]*out[m.csrCols[j]]; end
     out[i] /= m.csrVals[m.diagIdx[i]]
   end
 end #ilu0

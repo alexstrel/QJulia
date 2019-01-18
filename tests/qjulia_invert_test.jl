@@ -128,7 +128,8 @@ precond_param = QJuliaInterface.QJuliaInvertParam_qj()
 
 precond_param.residual_type            = QJuliaEnums.QJULIA_L2_RELATIVE_RESIDUAL
 #precond_param.inv_type                 = QJuliaEnums.QJULIA_PCG_INVERTER
-precond_param.inv_type                 = QJuliaEnums.QJULIA_MR_INVERTER #wroks for naive and fails for pipelined
+precond_param.inv_type                 = QJuliaEnums.QJULIA_INVALID_INVERTER
+#precond_param.inv_type                 = QJuliaEnums.QJULIA_MR_INVERTER #wroks for naive and fails for pipelined
 precond_param.dslash_type_precondition = QJuliaEnums.QJULIA_WILSON_DSLASH
 precond_param.kappa                    = 1.0 / (2.0 * (1 + 3/gauge_param.anisotropy + mass))
 precond_param.cuda_prec                = QJuliaEnums.QJULIA_DOUBLE_PRECISION
@@ -187,7 +188,11 @@ solv_param.tol                    = inv_param.tol
 solv_param.maxiter                = inv_param.maxiter
 solv_param.Nsteps                 = 2
 
-QJuliaSolvers.solve(x_even, x_odd, mdagm, mdagm, solv_param, K)
+if precond_param.inv_type != QJuliaEnums.QJULIA_INVALID_INVERTER
+  QJuliaSolvers.solve(x_even, x_odd, mdagm, mdagm, solv_param, K)
+else
+  QJuliaSolvers.solve(x_even, x_odd, mdagm, mdagm, solv_param)
+end  
 
 #compute true residual:
 r = t_odd
