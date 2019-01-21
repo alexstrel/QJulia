@@ -1,4 +1,4 @@
-module QJuliaMPPCG
+module QJuliaPCG
 
 using QJuliaInterface
 using QJuliaEnums
@@ -228,4 +228,4 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
     x .= @. y
 end #solver
 
-end #QJuliaMPPCG
+end #QJuliaPCG

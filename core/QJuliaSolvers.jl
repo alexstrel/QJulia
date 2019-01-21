@@ -91,7 +91,6 @@ module QJuliaSolvers
   include("../main/solvers/QJuliaMR.jl")
   include("../main/solvers/QJuliaLanMR.jl")
   include("../main/solvers/QJuliaPCG.jl")
-  include("../main/solvers/QJuliaMPPCG.jl")
   include("../main/solvers/QJuliaPipePCG.jl")
   include("../main/solvers/QJuliaCGPCG.jl")
 
@@ -109,8 +108,8 @@ module QJuliaSolvers
       if (m == mSloppy)
         QJuliaPCG.solver(out, inp, m, mSloppy, param, K)
       else
-        QJuliaMPPCG.solver(out, inp, m, mSloppy, param, K)
-      end 
+        QJuliaPCG.solver(out, inp, m, mSloppy, param, K)
+      end
     elseif param.inv_type == QJuliaEnums.QJULIA_PIPEPCG_INVERTER
       #QJuliaCGPCG.solver(out, inp, m,mSloppy, param, K)
       QJuliaPipePCG.solver(out, inp, m,mSloppy, param, K)
