@@ -59,4 +59,10 @@ import QJuliaEnums
 
    commCoords_qj(idx)      = ccall((:commDim, "libquda"), Cint, (Cint,), idx)
 
+#   read_gauge_field_qj(filename, gauge, prec, X, argc, argv) = ccall((:read_gauge_field, "libqiowrap"), Cvoid, (Ptr{Cchar}, Ptr{Cvoid}, Cint, Ptr{Cint}, Cint, Ptr{Ptr{Cchar}}), filename, gauge, prec, X, argc, argv)
+
+#   QMPInitComms_qj(argc, argv, commDims) = ccall((:QMPInitComms, "libqiowrap"), Cvoid, (Cint, Ptr{Ptr{Cchar}}, Ptr{Cint}), argc, argv, commDims)
+
+#   QMPFinalizeComms_qj() = ccall((:QMPFinalizeComms, "libqiowrap"), Cvoid, (), )
+
 end #QUDARoutines

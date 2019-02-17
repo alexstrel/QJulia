@@ -3,6 +3,7 @@
 #load path to qjulia home directory
 push!(LOAD_PATH, joinpath(@__DIR__, "..", "core"))
 push!(LOAD_PATH, joinpath(@__DIR__, "..", "libs/quda-routines"))
+push!(LOAD_PATH, joinpath(@__DIR__, "..", "libs/scidac-routines"))
 push!(LOAD_PATH, joinpath(@__DIR__, "..", "main/fields"))
 
 import QJuliaBlas
@@ -14,6 +15,7 @@ import QJuliaGaugeUtils
 import QJuliaComms
 import QJuliaSolvers
 import QUDARoutines
+import SCIDACRoutines
 
 using Random
 using LinearAlgebra
@@ -22,6 +24,8 @@ using MPI
 #create function/type alias
 double  = Float64
 float   = Float32
+
+load_config_from_file = "/home/astrel/Configs/wl_5p5_x2p38_um0p4125_cfg_1000.lime"
 
 ##############################################################################################
 
@@ -40,7 +44,7 @@ Random.seed!(2019)
 const lx = 16
 const ly = 16
 const lz = 16
-const lt = 32
+const lt = 64
 const ls = 1
 
 const dim = 4
@@ -65,7 +69,7 @@ QJuliaUtils.gen_random_spinor!(sp_in)
 gauge_param = QJuliaInterface.QJuliaGaugeParam_qj()
 gauge_param.X = (lx, ly, lz, lt)
 gauge_param.cpu_prec   = QJuliaEnums.QJULIA_DOUBLE_PRECISION
-gauge_param.t_boundary = QJuliaEnums.QJULIA_ANTI_PERIODIC_T
+gauge_param.t_boundary = QJuliaEnums.QJULIA_PERIODIC_T
 gauge_param.gtype      = QJuliaEnums.QJULIA_WILSON_LINKS
 gauge_param.anisotropy = 2.38
 
@@ -81,12 +85,18 @@ gauge_param.cuda_prec_refinement_sloppy   = QJuliaEnums.QJULIA_HALF_PRECISION
 #println("======= Gauge parameters =======")
 #QJuliaInterface.printQudaGaugeParam_qj(gauge_param)
 
-inv_param = QJuliaInterface.QJuliaInvertParam_qj()
-inv_param.residual_type = QJuliaEnums.QJULIA_L2_RELATIVE_RESIDUAL
-#println("======= Invert parameters =======")
-#QJuliaInterface.printQudaInvertParam_qj(inv_param)
+#load configuration from file or generate random one:
+gauge_load_type = 1
+if load_config_from_file != ""
+  Xdims = Vector{Cint}(undef, 4)
+  for i in 1:length(Xdims); Xdims[i] = gauge_param.X[i] ; end
+  qio_prec = Cint(8) #gauge_param.cuda_prec
 
-QJuliaGaugeUtils.construct_gauge_field!(gauge, 1, gauge_param)
+  SCIDACRoutines.QMPInitComms_qj(0, C_NULL, QJuliaUtils.gridsize_from_cmdline)
+  SCIDACRoutines.read_gauge_field_qj(load_config_from_file, gauge, qio_prec, Xdims, 0, C_NULL)
+  gauge_load_type = 2
+end
+QJuliaGaugeUtils.construct_gauge_field!(gauge, gauge_load_type, gauge_param)
 
 gauge_param.gtype       = QJuliaEnums.QJULIA_SU3_LINKS 		#currently cannot set QJULIA_WILSON_LINKS (=QJULIA_SU3_LINKS)  for QUDA
 
@@ -104,18 +114,23 @@ plaq = Array{Cdouble, 1}(undef, 3)
 QUDARoutines.plaqQuda_qj(plaq)
 println("Computed plaquette is ", plaq[1], ", (spatial = ",  plaq[2], ", temporal = ", plaq[3], ")")
 
-mass = -0.9
+mass = -0.4
+
+inv_param = QJuliaInterface.QJuliaInvertParam_qj()
+inv_param.residual_type = QJuliaEnums.QJULIA_L2_RELATIVE_RESIDUAL
+#println("======= Invert parameters =======")
+#QJuliaInterface.printQudaInvertParam_qj(inv_param)
 
 inv_param.mass = mass
 inv_param.kappa = 1.0 / (2.0 * (1 + 3/gauge_param.anisotropy + mass))
-inv_param.maxiter = 100
+inv_param.maxiter = 10000
 
 inv_param.cuda_prec = QJuliaEnums.QJULIA_DOUBLE_PRECISION
 inv_param.cuda_prec_sloppy = QJuliaEnums.QJULIA_SINGLE_PRECISION
 inv_param.cuda_prec_precondition = QJuliaEnums.QJULIA_HALF_PRECISION
 inv_param.solution_type = QJuliaEnums.QJULIA_MATPC_SOLUTION
-#inv_param.inv_type = QJuliaEnums.QJULIA_PIPEPCG_INVERTER
-inv_param.inv_type = QJuliaEnums.QJULIA_PCG_INVERTER
+inv_param.inv_type = QJuliaEnums.QJULIA_PIPEPCG_INVERTER
+#inv_param.inv_type = QJuliaEnums.QJULIA_PCG_INVERTER
 
 println("Kappa = ",  inv_param.kappa)
 
@@ -129,7 +144,7 @@ precond_param = QJuliaInterface.QJuliaInvertParam_qj()
 precond_param.residual_type            = QJuliaEnums.QJULIA_L2_RELATIVE_RESIDUAL
 #precond_param.inv_type                 = QJuliaEnums.QJULIA_PCG_INVERTER
 precond_param.inv_type                 = QJuliaEnums.QJULIA_INVALID_INVERTER
-#precond_param.inv_type                 = QJuliaEnums.QJULIA_MR_INVERTER #wroks for naive and fails for pipelined
+#precond_param.inv_type                 = QJuliaEnums.QJULIA_LANMR_INVERTER #wroks for naive and fails for pipelined
 precond_param.dslash_type_precondition = QJuliaEnums.QJULIA_WILSON_DSLASH
 precond_param.kappa                    = 1.0 / (2.0 * (1 + 3/gauge_param.anisotropy + mass))
 precond_param.cuda_prec                = QJuliaEnums.QJULIA_DOUBLE_PRECISION
@@ -192,7 +207,7 @@ if precond_param.inv_type != QJuliaEnums.QJULIA_INVALID_INVERTER
   QJuliaSolvers.solve(x_even, x_odd, mdagm, mdagm, solv_param, K)
 else
   QJuliaSolvers.solve(x_even, x_odd, mdagm, mdagm, solv_param)
-end  
+end
 
 #compute true residual:
 r = t_odd

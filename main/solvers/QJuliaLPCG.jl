@@ -1,4 +1,4 @@
-module QJuliaPipePCG
+module QJuliaLPCG
 
 using QJuliaInterface
 using QJuliaEnums
@@ -14,9 +14,8 @@ rdot     = QJuliaReduce.reDotProduct
 cpy      = QJuliaBlas.cpy
 
 # Reference:
-# S. Cools, E.F. Yetkin, E. Agullo, L. Giraud, W. Vanroose, "Analyzing the effect of local rounding error
-# propagation on the maximal attainable accuracy of the pipelined Conjugate Gradients method",
-# SIAM Journal on Matrix Analysis and Applications (SIMAX), 39(1):426–450, 2018.
+# S. Cools, E.F. Yetkin, E. Agullo, L. Giraud, W. Vanroose, "Numerically stable Recurrence Relations for the Communication hiding pipelined Conjugate Gradients method",
+# arxiv:1902.03100
 
 @inline function MatPrecon(out::AbstractArray, inp::AbstractArray, outSloppy::AbstractArray, inpSloppy::AbstractArray, K::Function)
 
@@ -33,9 +32,7 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
 	is_preconditioned = param.inv_type_precondition != QJuliaEnums.QJULIA_INVALID_INVERTER
 
-	println("AM I HERE??????????????????????????????????????????????")
-
-    solver_name = is_preconditioned == false ? "PipeCG" : "PipePCG"
+    solver_name = is_preconditioned == false ? "PipeLCG" : "PipeLPCG"
 
     println("Running ", solver_name ," solver (solver precion ", param.dtype, " , sloppy precion ", param.dtype_sloppy, " )")
 
@@ -54,27 +51,15 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
 	if mixed == true; println("Running mixed precision solver."); end
 
-    rnp = 0.0; pnp = 0.0; snp = 0.0; unp = 0.0; wnp = 0.0; xnp = 0.0; qnp = 0.0; znp = 0.0
-    replace = 0;totreplaces = 0
+    σ = param.sigma
+	l = param.pipeline
 
-    ϵ = eps(param.dtype)
-    sqrteps = sqrt(ϵ)
-
-    δs = 0.0; δz = 0.0; δpp = 0.0; δq = 0.0; δm = 0.0
-	errr = 0.0; errrprev = 0.0; errs = 0.0; errw = 0.0; errz = 0.0; errncr = 0.0; errncs = 0.0; errncw = 0.0; errncz = 0.0
-
-    local z   = zeros(param.dtype, length(x))
-    local p   = zeros(param.dtype, length(x))
-    local w   = zeros(param.dtype, length(x))
-    local q   = zeros(param.dtype, length(x))
-    local m   = zeros(param.dtype, length(x))
-    local n   = zeros(param.dtype, length(x))
+    local z   = Matrix{param.dtype}(undef, length(x), (l+1))
     local r   = zeros(param.dtype, length(x))
-    local s   = zeros(param.dtype, length(x))
-	local m   = zeros(param.dtype, length(x))
-    local u   = zeros(param.dtype, length(x))
+	local s   = zeros(param.dtype, length(x))
+	local y   = ones(param.dtype, length(x))
 
-    local y   = ones(param.dtype, length(x))
+	g = Matrix{param.dtype}(undef, l, l)
 
     Precond(out, inp) = MatPrecon(out, inp, out, inp, K)
 
@@ -86,14 +71,11 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 	  r .=@. b
     end
 
-    norm2b = norm(b)
+	rnorm    = norm(r)
+	z[:, 1] .=@. r / rnorm
 
-    Precond(u, r)	#  u <- Br
-    Mat(w, u)		#  w <- Au
+    for col in axes(z, 2); cpy(z[:, col], z[:, 1]); end
 
-	δp    = norm(u) #
-    δb    = norm2b
-    rnorm = δp
 
     # Compute matrix norm infinity : ||v|| = max_i |v_i|, ||A|| = max_i || a_i* ||, maximum row sum
     Mat(s, y)

@@ -35,13 +35,17 @@ QUDARoutines.initQuda_qj(0)
 
 Random.seed!(2019)
 
-const lx = 16
-const ly = 16
-const lz = 16
+const lx = 32
+const ly = 32
+const lz = 32
 const lt = 32
 const ls = 1
 
-spinor_field_desc = QJuliaFields.QJuliaLatticeFieldDescr_qj{ComplexF64}(QJuliaEnums.QJULIA_SCALAR_GEOMETRY, QJuliaEnums.QJULIA_INVALID_PARITY, false, 0, (lx,ly,lz,lt,ls))
+data_type = ComplexF32
+data_prec_type = ComplexF32
+data_sloppy_type = ComplexF32
+
+spinor_field_desc = QJuliaFields.QJuliaLatticeFieldDescr_qj{data_type}(QJuliaEnums.QJULIA_SCALAR_GEOMETRY, QJuliaEnums.QJULIA_INVALID_PARITY, false, 0, (lx,ly,lz,lt,ls))
 
 cs_in = QJuliaFields.CreateColorSpinor(spinor_field_desc)
 cs_ou = QJuliaFields.CreateColorSpinor(spinor_field_desc)
@@ -50,16 +54,16 @@ QJuliaFieldUtils.gen_random_spinor!(cs_in)
 
 gauge_param = QJuliaInterface.QJuliaGaugeParam_qj()
 gauge_param.X = (lx, ly, lz, lt)
-gauge_param.cpu_prec   = QJuliaEnums.QJULIA_DOUBLE_PRECISION
+gauge_param.cpu_prec   = data_type == ComplexF64 ? QJuliaEnums.QJULIA_DOUBLE_PRECISION : QJuliaEnums.QJULIA_SINGLE_PRECISION
 gauge_param.t_boundary = QJuliaEnums.QJULIA_ANTI_PERIODIC_T
 gauge_param.gtype      = QJuliaEnums.QJULIA_WILSON_LINKS
 gauge_param.anisotropy = 2.38
 
-gauge_param.cuda_prec                     = QJuliaEnums.QJULIA_DOUBLE_PRECISION
+gauge_param.cuda_prec                     = data_type == ComplexF64 ? QJuliaEnums.QJULIA_DOUBLE_PRECISION : QJuliaEnums.QJULIA_SINGLE_PRECISION
 gauge_param.reconstruct                   = QJuliaEnums.QJULIA_RECONSTRUCT_12
-gauge_param.cuda_prec_sloppy              = QJuliaEnums.QJULIA_SINGLE_PRECISION
+gauge_param.cuda_prec_sloppy              = data_sloppy_type == ComplexF64 ? QJuliaEnums.QJULIA_DOUBLE_PRECISION : QJuliaEnums.QJULIA_SINGLE_PRECISION
 gauge_param.reconstruct_sloppy            = QJuliaEnums.QJULIA_RECONSTRUCT_12
-gauge_param.cuda_prec_precondition        = QJuliaEnums.QJULIA_DOUBLE_PRECISION
+gauge_param.cuda_prec_precondition        = data_prec_type == ComplexF64 ? QJuliaEnums.QJULIA_DOUBLE_PRECISION : QJuliaEnums.QJULIA_SINGLE_PRECISION
 gauge_param.reconstruct_precondition      = QJuliaEnums.QJULIA_RECONSTRUCT_12
 gauge_param.reconstruct_refinement_sloppy = QJuliaEnums.QJULIA_RECONSTRUCT_12
 gauge_param.cuda_prec_refinement_sloppy   = QJuliaEnums.QJULIA_HALF_PRECISION
@@ -67,7 +71,7 @@ gauge_param.cuda_prec_refinement_sloppy   = QJuliaEnums.QJULIA_HALF_PRECISION
 println("======= Gauge parameters =======")
 QUDARoutines.printQudaGaugeParam_qj(gauge_param)
 
-gauge_field_desc = QJuliaFields.QJuliaLatticeFieldDescr_qj{ComplexF64}(QJuliaEnums.QJULIA_VECTOR_GEOMETRY, QJuliaEnums.QJULIA_INVALID_PARITY, false, 0, (lx,ly,lz,lt))
+gauge_field_desc = QJuliaFields.QJuliaLatticeFieldDescr_qj{ComplexF32}(QJuliaEnums.QJULIA_VECTOR_GEOMETRY, QJuliaEnums.QJULIA_INVALID_PARITY, false, 0, (lx,ly,lz,lt))
 
 gauge_field = QJuliaFields.CreateGaugeField(gauge_field_desc)
 QJuliaFieldUtils.construct_gauge_field!(gauge_field, 1, gauge_param)
@@ -98,14 +102,16 @@ mass = -0.9
 
 inv_param.mass = mass
 inv_param.kappa = 1.0 / (2.0 * (1 + 3/gauge_param.anisotropy + mass))
-inv_param.maxiter = 100
+inv_param.maxiter = 500
+inv_param.tol = 5e-8
 
-inv_param.cuda_prec = QJuliaEnums.QJULIA_DOUBLE_PRECISION
-inv_param.cuda_prec_sloppy = QJuliaEnums.QJULIA_SINGLE_PRECISION
+inv_param.cpu_prec = gauge_param.cpu_prec
+inv_param.cuda_prec = gauge_param.cuda_prec
+inv_param.cuda_prec_sloppy = gauge_param.cuda_prec_sloppy
 inv_param.cuda_prec_precondition = QJuliaEnums.QJULIA_HALF_PRECISION
 inv_param.solution_type = QJuliaEnums.QJULIA_MATPC_SOLUTION
-#inv_param.inv_type = QJuliaEnums.QJULIA_PIPEPCG_INVERTER
-inv_param.inv_type = QJuliaEnums.QJULIA_PCG_INVERTER
+inv_param.inv_type = QJuliaEnums.QJULIA_PIPEPCG_INVERTER
+#inv_param.inv_type = QJuliaEnums.QJULIA_PCG_INVERTER
 
 println("Kappa = ",  inv_param.kappa)
 
@@ -117,13 +123,14 @@ Deo(out, inp)   = QUDARoutines.dslashQuda_qj(out, inp, inv_param, QJuliaEnums.QJ
 precond_param = QJuliaInterface.QJuliaInvertParam_qj()
 
 precond_param.residual_type            = QJuliaEnums.QJULIA_L2_RELATIVE_RESIDUAL
-#precond_param.inv_type                 = QJuliaEnums.QJULIA_PCG_INVERTER
-precond_param.inv_type                 = QJuliaEnums.QJULIA_LANMR_INVERTER #wroks for naive and fails for pipelined
+precond_param.inv_type                 = QJuliaEnums.QJULIA_PCG_INVERTER
+#precond_param.inv_type                 = QJuliaEnums.QJULIA_LANMR_INVERTER #wroks for naive and fails for pipelined
+precond_param.inv_type                 = QJuliaEnums.QJULIA_INVALID_INVERTER
 precond_param.dslash_type_precondition = QJuliaEnums.QJULIA_WILSON_DSLASH
 precond_param.kappa                    = 1.0 / (2.0 * (1 + 3/gauge_param.anisotropy + mass))
-precond_param.cuda_prec                = QJuliaEnums.QJULIA_DOUBLE_PRECISION
-precond_param.cuda_prec_sloppy         = QJuliaEnums.QJULIA_SINGLE_PRECISION
-precond_param.cuda_prec_precondition   = QJuliaEnums.QJULIA_DOUBLE_PRECISION
+precond_param.cuda_prec                = data_prec_type == ComplexF64 ? QJuliaEnums.QJULIA_DOUBLE_PRECISION : QJuliaEnums.QJULIA_SINGLE_PRECISION
+precond_param.cuda_prec_sloppy         = precond_param.cuda_prec
+precond_param.cuda_prec_precondition   = precond_param.cuda_prec
 precond_param.solution_type            = QJuliaEnums.QJULIA_MATPC_SOLUTION
 precond_param.maxiter                  = precond_param.inv_type == QJuliaEnums.QJULIA_PCG_INVERTER ? 30 : 6
 precond_param.Nsteps    	       = 1
@@ -131,6 +138,8 @@ precond_param.Nsteps    	       = 1
 mdagmPre(out, inp)  = QUDARoutines.MatDagMatQuda_qj(out, inp, precond_param)
 
 pre_solv_param = QJuliaSolvers.QJuliaSolverParam_qj()
+
+pre_solv_param.dtype = data_prec_type == ComplexF64 ? Float64 : Float32
 
 pre_solv_param.inv_type  = precond_param.inv_type
 pre_solv_param.tol       = 1e-2
@@ -166,6 +175,10 @@ x_odd2 = dot(x_odd.v, x_odd.v)
 println("Initial source norm: ", sqrt(real(x_odd2)), " ,source norm2 ", x_odd2, " , requested tolerance: ", inv_param.tol)
 
 solv_param = QJuliaSolvers.QJuliaSolverParam_qj()
+
+solv_param.dtype = data_type == ComplexF64 ? Float64 : Float32
+solv_param.dtype_sloppy = data_sloppy_type == ComplexF64 ? Float64 : Float32
+solv_param.dtype_precondition = data_prec_type == ComplexF64 ? Float64 : Float32
 # Set up parameters
 solv_param.inv_type               = inv_param.inv_type
 solv_param.inv_type_precondition  = precond_param.inv_type
@@ -182,7 +195,11 @@ solv_param.Nsteps                 = 1
 sol = view(reinterpret(cs_ou.field_desc.prec, x_even.v), :)
 src = view(reinterpret(cs_in.field_desc.prec, x_odd.v), :)
 
-QJuliaSolvers.solve(sol, src, mdagm, mdagm, solv_param, K)
+if precond_param.inv_type != QJuliaEnums.QJULIA_INVALID_INVERTER
+  QJuliaSolvers.solve(sol, src, mdagm, mdagm, solv_param, K)
+else
+  QJuliaSolvers.solve(sol, src, mdagm, mdagm, solv_param)
+end
 
 #compute true residual:
 r = t_odd.v

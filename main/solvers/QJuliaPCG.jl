@@ -9,6 +9,8 @@ using QJuliaSolvers
 using LinearAlgebra
 using Printf
 
+using Plots
+
 ##########
 # Reference: H. Van der Vorst, Q. Ye, "Residual replacement strategies for Krylov subspace iterative methods for the convergence of true residuals", 1999
 ##########
@@ -28,9 +30,6 @@ cpy      = QJuliaBlas.cpy
 
 end
 
-
-# nasa2146 matrix norm
-const exactAnorm = 3.272816e+07
 
 function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, param::QJuliaSolvers.QJuliaSolverParam_qj, K::Function, extra_args...)
 
@@ -59,6 +58,7 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
     local y    = Vector{param.dtype}(undef, length(x))
 	# aux high precision vector
     local yaux = ones(param.dtype, length(y))
+    local yaux2 = zeros(param.dtype, length(y))
     # sloppy residual vector
     local rSloppy    = mixed == true ? zeros(param.dtype_sloppy, length(b)) : r
     local rSloppyOld = zeros(param.dtype_sloppy, length(rSloppy))
@@ -71,6 +71,8 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
     local u       = is_preconditioned == true ? zeros(param.dtype_sloppy, length(rSloppy)) : rSloppy
     local rPre    = param.dtype_precondition != param.dtype_sloppy ? zeros(param.dtype_precondition, length(rSloppy)) : rSloppy
     local pPre    = param.dtype_precondition != param.dtype_sloppy ? zeros(param.dtype_precondition, length(rSloppy)) : u
+
+	local plot_data = Array{Float64, 2}(undef, param.maxiter, 4)
 
 	Precond(out, inp) = MatPrecon(out, inp, pPre, rPre,K)
 
@@ -159,13 +161,14 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
       β    = γnew / γold
       #
       rNorm   = sqrt(r2)
+
       # xSloppy .= xSloppy + α*p <=> norm2(xSloppy) = norm2(xSloppy) + α*α*norm2(p)
       xnorm = xnorm + α*α*ppnorm
       dkm1  = dk
-      dk    = dkm1 + ϵ*rNorm+ϵh*nfact*Anorm*sqrt(xnorm)
-	  #dk  = dkm1 + ϵ*(rNorm + Anorm*sqrt(xnorm) + (nfact+4.0)*abs(α)*Anorm*sqrt(ppnorm))
+      #dk    = dkm1 + ϵ*rNorm+ϵh*abs(α)*Anorm*sqrt(xnorm)
+	  dk  = dkm1 + ϵ*sqrt(rNorm + (Anorm*sqrt(xnorm) + (nfact+4.0)*abs(α)*Anorm*sqrt(ppnorm)))
 
-      updateR =  ( ((dkm1 <= deps*sqrt(γold)) && ((dk > (deps * rNorm)))) && (dk > dfac * dinit) )
+      updateR =  ( ((dkm1 <= deps*sqrt(r2_old)) && ((dk > (deps * rNorm)))) && (dk > dfac * dinit) )
 	  #updateR = ( (dkm1 <= (deps*sqrt(r2_old))) && ((dk > (deps * rNorm))) )
 
       if updateR == true
@@ -189,7 +192,7 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
         # Recompute β after reliable update
         β  = γ / γold
 		# Reset reliable parameters
-        dinit = ϵh*(sqrt(r2) + (nfact+1)*Anorm*sqrt(norm2(y)))
+        dinit = ϵh*(sqrt(r2) + Anorm*sqrt(norm2(y)))
         dk = dinit; xnorm = 0.0
 
         if(sqrt(γ) > rNorm)
@@ -207,7 +210,7 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
       # Update iter index
       k += 1
 
-     @printf("%s: %d iteration, iter residual: %le \n", solver_name, k, sqrt(γ))
+     @printf("%s: %d iteration, iter residual: %le  , true residual %le \n", solver_name, k, sqrt(γ) / sqrt(b2), sqrt(norm2(yaux)) / sqrt(b2))
 
     end #while
 
@@ -226,6 +229,7 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
     end #if (param.compute_true_res == true)
 
     x .= @. y
+
 end #solver
 
 end #QJuliaPCG

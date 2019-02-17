@@ -92,6 +92,7 @@ module QJuliaSolvers
   include("../main/solvers/QJuliaLanMR.jl")
   include("../main/solvers/QJuliaPCG.jl")
   include("../main/solvers/QJuliaPipePCG.jl")
+  include("../main/solvers/QJuliaPipeCG.jl")
   include("../main/solvers/QJuliaCGPCG.jl")
 
   function solve(out::AbstractArray, inp::AbstractArray, m::Any, mSloppy::Any, param::QJuliaSolverParam_qj, K::Function = identity_op)
@@ -105,14 +106,14 @@ module QJuliaSolvers
     elseif param.inv_type == QJuliaEnums.QJULIA_LANMR_INVERTER
       QJuliaLanMR.solver(out, inp, m, mSloppy, param)
     elseif param.inv_type == QJuliaEnums.QJULIA_PCG_INVERTER
-      if (m == mSloppy)
-        QJuliaPCG.solver(out, inp, m, mSloppy, param, K)
-      else
-        QJuliaPCG.solver(out, inp, m, mSloppy, param, K)
-      end
+      QJuliaPCG.solver(out, inp, m, mSloppy, param, K)
     elseif param.inv_type == QJuliaEnums.QJULIA_PIPEPCG_INVERTER
       #QJuliaCGPCG.solver(out, inp, m,mSloppy, param, K)
-      QJuliaPipePCG.solver(out, inp, m,mSloppy, param, K)
+	  if K != identity_op
+        QJuliaPipePCG.solver(out, inp, m,mSloppy, param, K)
+	  else
+	    QJuliaPipeCG.solver(out, inp, m,mSloppy, param, K)
+	  end
     else
       error("Solver ", param.inv_type," is not available.")
     end

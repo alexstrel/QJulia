@@ -1,4 +1,4 @@
-module QJuliaPipePCG
+module QJuliaPipeCG
 
 using QJuliaInterface
 using QJuliaEnums
@@ -27,21 +27,15 @@ cpy      = QJuliaBlas.cpy
 	K(outSloppy, inpSloppy)
 	cpy(out, outSloppy)       #noop for the alias refs
 
-  end
+end
 
 function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, param::QJuliaSolvers.QJuliaSolverParam_qj, K::Function, extra_args...)
 
-	is_preconditioned = param.inv_type_precondition != QJuliaEnums.QJULIA_INVALID_INVERTER
+	println("WARNING: this solver is in WIP!")
 
-	println("AM I HERE??????????????????????????????????????????????")
-
-    solver_name = is_preconditioned == false ? "PipeCG" : "PipePCG"
+    solver_name = "PipeCG"
 
     println("Running ", solver_name ," solver (solver precion ", param.dtype, " , sloppy precion ", param.dtype_sloppy, " )")
-
-    if is_preconditioned == true
-      println("Preconditioner: ", param.inv_type_precondition)
-    end
 
     if (param.maxiter == 0)
       if param.use_init_guess == false
@@ -66,13 +60,9 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
     local z   = zeros(param.dtype, length(x))
     local p   = zeros(param.dtype, length(x))
     local w   = zeros(param.dtype, length(x))
-    local q   = zeros(param.dtype, length(x))
-    local m   = zeros(param.dtype, length(x))
     local n   = zeros(param.dtype, length(x))
     local r   = zeros(param.dtype, length(x))
     local s   = zeros(param.dtype, length(x))
-	local m   = zeros(param.dtype, length(x))
-    local u   = zeros(param.dtype, length(x))
 
     local y   = ones(param.dtype, length(x))
 
@@ -88,10 +78,9 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
     norm2b = norm(b)
 
-    Precond(u, r)	#  u <- Br
-    Mat(w, u)		#  w <- Au
+    Mat(w, r)		#  w <- Ar
 
-	δp    = norm(u) #
+	δp    = norm(r) #
     δb    = norm2b
     rnorm = δp
 
@@ -100,7 +89,7 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
     y .=@. abs.(s)
     #9.43108354e-01
     Anorm = findmax(y)[1]
-	mnz   = 6.0	#must be tunable
+	mnz   = 10.0	#must be tunable
     sqn   = mnz*sqrt( Float64( length(b) ) )
     println("Extimated matrix norm: \n", Anorm)
 
@@ -108,27 +97,24 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
     println(solver_name," : Initial residual = ", δp / norm2b)
 
     # zero cycle
-	δp  = norm(u)
-	γ   = rdot(r, u)
-	δ   = rdot(w, u)
+	δp  = norm(r)
+	γ   = rdot(r, r)
+	δ   = rdot(w, r)
 
 	δx  = sqrt(norm2(x))
-	δu  = sqrt(norm2(u))
+	δu  = 0.0#sqrt(norm2(r))
 	δw  = sqrt(norm2(w))
 
-	Precond(m, w)	#   m <- Bw
-	Mat(n, m)		#   n <- Am
+	Mat(n, w)		#   n <- Aw
 
 	α    = γ / δ
 	β    = 0.0
 	γold = γ
 
 	z .=@. n           #  z <- n
-	q .=@. m           #  q <- m
-	p .=@. u           #  p <- u
+	p .=@. r           #  p <- u
 	s .=@. w           #  s <- w
 	x .=@. x + α*p     #  x <- x + alpha * p
-	u .=@. u - α*q     #  u <- u - alpha * q
 	w .=@. w - α*z     #  w <- w - alpha * z
 	r .=@. r - α*s     #  r <- r - alpha * s
 
@@ -139,22 +125,18 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 	  pnp = δpp; snp = δs; qnp = δq; znp = δz
       rnp = δp;  unp = δu; wnp = δw; xnp = δx
 
-  	  δp = norm(u)
-      γ  = rdot(r, u)
-      δ  = rdot(w, u)
+  	  δp = norm(r)
+      γ  = rdot(r, r)
+      δ  = rdot(w, r)
 
       δs  = sqrt(norm2(s))
   	  δz  = sqrt(norm2(z))
   	  δpp = sqrt(norm2(p))
-  	  δq  = sqrt(norm2(q))
-  	  δm  = sqrt(norm2(m))
 
   	  δx  = sqrt(norm2(x))
-   	  δu  = sqrt(norm2(u))
   	  δw  = sqrt(norm2(w))
 
-  	  Precond(m, w)		  #   m <- Bw
-  	  Mat(n, m)           #   n <- Am
+  	  Mat(n, w)           #   n <- Am
 
 	  βold = β
       β = γ / γold
@@ -162,11 +144,9 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
       α = γ / (δ - β / αold * γ)
 
       z .=@. n + β*z     #  z <- n + beta * z
-      q .=@. m + β*q     #  q <- m + beta * q
-      p .=@. u + β*p     #  p <- u + beta * p
+      p .=@. r + β*p     #  p <- u + beta * p
       s .=@. w + β*s     #  s <- w + beta * s
 	  x .=@. x + α*p     #  x <- x + alpha * p
-      u .=@. u - α*q     #  u <- u - alpha * q
   	  w .=@. w - α*z     #  w <- w - alpha * z
       r .=@. r - α*s     #  r <- r - alpha * s
       γold = γ
@@ -208,11 +188,9 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
         Mat(r,x)        #  r <- Ax - b
         r .=@. b - r
 		norm2r = norm(r)
-        Precond(u, r)   #  u <- Br
-        Mat(w,u)        #  w <- Au
-        Mat(s,p)        #  s <- Ap
-        Precond(q,s)    #  q <- Bs
-        Mat(z,q)        #  z <- Aq
+        Mat(w,r)        #  w <- Ar
+		Mat(s,p)        #  s <- Ap
+        Mat(z,s)        #  z <- As
         @printf("True residual after update %1.15e (relative %1.15e).\n", norm2r, norm2r/norm2b)
         replace = 1;  totreplaces +=1
       end
@@ -227,4 +205,4 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
 end # solver
 
-end # module
+end # module QJuliaPipeCG

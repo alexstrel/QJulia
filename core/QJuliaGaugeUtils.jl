@@ -35,7 +35,7 @@ function applyGaugeFieldScaling!(gauge::Matrix{Complex{T}}, param::QJuliaInterfa
   volh_t = Int(param.X[1] / 2)*param.X[2]*param.X[3]*(param.X[4]-1)
 
   # Apply spatial scaling factor (u0) to spatial links
-  gauge[:, :] /= param.anisotropy;
+  gauge[:, 1:3] /= param.anisotropy;
     
   # only apply T-boundary at edge nodes (always true for the single device)
   local last_node_in_t = (QUDARoutines.commCoords_qj(3) == QUDARoutines.commDim_qj(3)-1) ? true : false
