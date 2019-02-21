@@ -18,28 +18,13 @@ cpy      = QJuliaBlas.cpy
 # propagation on the maximal attainable accuracy of the pipelined Conjugate Gradients method",
 # SIAM Journal on Matrix Analysis and Applications (SIMAX), 39(1):426–450, 2018.
 
-@inline function MatPrecon(out::AbstractArray, inp::AbstractArray, outSloppy::AbstractArray, inpSloppy::AbstractArray, K::Function)
-
-	if pointer_from_objref(out) == pointer_from_objref(inp); return; end #nothing to do
-
-	outSloppy .=@. 0.0
-	cpy(inpSloppy, inp)       #noop for the alias refs
-	K(outSloppy, inpSloppy)
-	cpy(out, outSloppy)       #noop for the alias refs
-
-  end
-
 function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, param::QJuliaSolvers.QJuliaSolverParam_qj, K::Function, extra_args...)
 
-	is_preconditioned = param.inv_type_precondition != QJuliaEnums.QJULIA_INVALID_INVERTER
+	println("WARNING: this solver is in WIP!")
 
-    solver_name = is_preconditioned == false ? "PipeCG" : "PipePCG"
+    solver_name = "PipeCG"
 
-    println("Running ", solver_name ," solver.")
-
-    if is_preconditioned == true
-      println("Preconditioner: ", param.inv_type_precondition)
-    end
+    println("Running ", solver_name ," solver (solver precion ", param.dtype, " , sloppy precion ", param.dtype_sloppy, " )")
 
     if (param.maxiter == 0)
       if param.use_init_guess == false
@@ -52,84 +37,85 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
 	if mixed == true; println("Running mixed precision solver."); end
 
-    ϵ = param.delta*eps(param.dtype_sloppy)
-    sqrteps = sqrt(ϵ)
+    ϵ = eps(param.dtype_sloppy)
+    sqrteps = param.delta*sqrt(ϵ)
 
-    replace = 0;totreplaces = 0
-	Δcr = 0.0; Δcs = 0.0; Δcw = 0.0; Δcz = 0.0
-    errr = 0.0; errrprev = 0.0; errs = 0.0; errw = 0.0; errz = 0.0
+	println("Sloppy precision epsilon ", ϵ)
 
-    #full precision fields
-	local r_fp   = zeros(param.dtype, length(x))
-    #sloppy precision fields
-    local r   = mixed == true ? zeros(param.dtype_sloppy, length(x)) : r_fp
+    Δcr = 0.0; Δcs = 0.0; Δcw = 0.0; Δcz = 0.0
+	errr = 0.0; errrprev = 0.0; errs = 0.0; errw = 0.0; errz = 0.0
+	replace = 0;totreplaces = 0
+
     local z   = zeros(param.dtype_sloppy, length(x))
     local p   = zeros(param.dtype_sloppy, length(x))
     local w   = zeros(param.dtype_sloppy, length(x))
-    local n   = zeros(param.dtype_sloppy, length(x))
+    local v   = zeros(param.dtype_sloppy, length(x))
+    local r   = zeros(param.dtype_sloppy, length(x))
     local s   = zeros(param.dtype_sloppy, length(x))
-
-    Precond(out, inp) = MatPrecon(out, inp, rPre, pPre, K)
+    local hr  = mixed == true ? zeros(param.dtype, length(x)) : r;
+	local hw  = mixed == true ? zeros(param.dtype, length(x)) : w;
+	local hs  = mixed == true ? zeros(param.dtype, length(x)) : s;
+	local hz  = mixed == true ? zeros(param.dtype, length(x)) : z;
+	local hp  = mixed == true ? zeros(param.dtype, length(x)) : p;
 
     if param.use_init_guess == true
 	  #r = b - Ax
-	  Mat(r_fp, x)
-	  r_fp .=@. b - r_fp
+	  Mat(hr, x)
+	  hr .=@. b - hr
     else
-	  r_fp .=@. b
+	  hr .=@. b
     end
-	cpy(r, r_fp)
+	cpy(r, hr)
 
     norm2b = norm(b)
-	rnorm  = norm(r) #
+    rnorm  = norm(r)
 
     MatSloppy(w, r)		#  w <- Ar
 
     stop = rnorm*rnorm*param.tol*param.tol
     println(solver_name," : Initial residual = ", rnorm / norm2b)
 
-	γ  = rdot(r, r)
-	δ  = rdot(w, r)
+    # zero cycle
+	γ   = rdot(r, r)
+	δ   = rdot(w, r)
 
-	MatSloppy(n, w)           #   n <- Aw
+	MatSloppy(v, w)		#   n <- Aw
 
-    α = γ / δ
-	β = 0.0
-	z .=@. n          #  z <- n
-	p .=@. r          #  p <- u
-	s .=@. w          #  s <- w
+	α    = γ / δ
+	β    = 0.0
 
+	z .=@. v           #  z <- v
+	p .=@. r           #  p <- u
+	s .=@. w           #  s <- w
 	x .=@. x + α*p     #  x <- x + alpha * p
 	w .=@. w - α*z     #  w <- w - alpha * z
 	r .=@. r - α*s     #  r <- r - alpha * s
 
-    k = 1; converged = false
+	k = 1; converged = false
 
     while (k < param.maxiter && converged == false)
 
-	  γold = γ; γ = rdot(r, r)
-      δ     = rdot(w, r)
-      rnorm = norm(r)
+	  γold = γ
+      γ    = rdot(r, r)
+      δ    = rdot(w, r)
 
-	  Σ  = sqrt(norm2(s))
+      Σ  = sqrt(norm2(s))
   	  Ζ  = sqrt(norm2(z))
 
-	  @printf("%s: %d iteration, iter residual: %1.15e \n", solver_name, k, rnorm/norm2b)
+  	  MatSloppy(v, w)		#   v <- Aw
 
-	  MatSloppy(n, w)           #   n <- Aw
+	  βold = β; β = γ / γold
+	  αold = α; α = γ / (δ - β / αold * γ)
 
-      βold = β; β = γ / γold
-      αold = α; α = γ / (δ - β / α * γ)
-
-      z .=@. n + β*z     #  z <- n + beta * z
+      z .=@. v + β*z     #  z <- v + beta * z
       p .=@. r + β*p     #  p <- u + beta * p
       s .=@. w + β*s     #  s <- w + beta * s
-
-      x .=@. x + α*p     #  x <- x + alpha * p
-	  w .=@. w - α*z     #  w <- w - alpha * z
+	  #
+	  x .=@. x + α*p     #  x <- x + alpha * p
+  	  w .=@. w - α*z     #  w <- w - alpha * z
       r .=@. r - α*s     #  r <- r - alpha * s
 
-	  Δcr = (2.0*αold*Σ)*ϵ
+      Δcr = (2.0*αold*Σ)*ϵ
       Δcs = (2.0*β*Σ+2.0*αold*Ζ)*ϵ
 	  Δcw = (2.0*αold*Ζ)*ϵ
 	  Δcz = (2.0*β*Ζ)*ϵ
@@ -150,27 +136,36 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
         errz = β*errz + Δcz
       end
 
-      if (k > 1 && errrprev <= (sqrteps * sqrt(γold)) && errr > (sqrteps * sqrt(γ)))
-		println("Start reliable update...")
-        Mat(r_fp,x)        #  r <- Ax - b
-        r_fp .=@. b - r_fp
-		rnorm = norm(r_fp)
-		cpy(r, r_fp)
-
-        MatSloppy(w,r)        #  w <- Ar
-        MatSloppy(s,p)        #  s <- Ap
-        MatSloppy(z,s)        #  z <- As
-        @printf("True residual after update %1.15e (relative %1.15e).\n", rnorm, rnorm/norm2b)
-        replace = 1;  totreplaces +=1
-      end
 	  # Check convergence:
 	  converged = (γ > stop) ? false : true
+
+      if ((k > 1 && errrprev <= (sqrteps * sqrt(γold)) && errr > (sqrteps * sqrt(γ))) || converged == true)
+		println("Start reliable update...")
+        Mat(hr,x)        #  r <- Ax - b
+        hr .=@. b - hr
+		norm2r = norm(hr)
+		cpy(r, hr)
+
+        Mat(hw,hr)        #  w <- Ar
+		cpy(hp,p)
+		Mat(hs,hp)        #  s <- Ap
+        Mat(hz,hs)        #  z <- As
+
+        cpy(w,hw)
+        cpy(s,hs)
+        cpy(z,hz)
+
+        @printf("True residual after update %1.15e (relative %1.15e).\n", norm2r, norm2r/norm2b)
+        replace = 1;  totreplaces +=1
+      end
+
+	  rnorm = sqrt(γ)
+	  @printf("%s: %d iteration, iter residual: %1.15e \n", solver_name, k, rnorm/norm2b)
 	  # Update iter index
 	  k += 1
     end # while
-
 	@printf("Finish %s: %d iterations, total restarst: %d \n", solver_name, k, totreplaces)
 
 end # solver
 
-end # module
+end # module QJuliaPipeCG

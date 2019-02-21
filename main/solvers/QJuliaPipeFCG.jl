@@ -1,4 +1,4 @@
-module QJuliaPipePCG
+module QJuliaPipeFCG
 
 using QJuliaInterface
 using QJuliaEnums
@@ -13,7 +13,10 @@ norm2    = QJuliaReduce.gnorm2
 rdot     = QJuliaReduce.reDotProduct
 cpy      = QJuliaBlas.cpy
 
-# Reference:
+# References:
+# P. Sanan, S.M. Schnepp, and D.A. May, "Pipelined, Flexible Krylov Subspace Methods,"
+# SIAM Journal on Scientific Computing 2016 38:5, C441-C470,
+# See also:
 # S. Cools, E.F. Yetkin, E. Agullo, L. Giraud, W. Vanroose, "Analyzing the effect of local rounding error
 # propagation on the maximal attainable accuracy of the pipelined Conjugate Gradients method",
 # SIAM Journal on Matrix Analysis and Applications (SIMAX), 39(1):426–450, 2018.
@@ -31,11 +34,13 @@ end
 
 function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, param::QJuliaSolvers.QJuliaSolverParam_qj, K::Function, extra_args...)
 
-	println("WARNING: this solver is in WIP!")
-
 	is_preconditioned = param.inv_type_precondition != QJuliaEnums.QJULIA_INVALID_INVERTER
 
-    solver_name = is_preconditioned == false ? "PipeCG" : "PipePCG"
+    if(param.inv_type_precondition != QJuliaEnums.QJULIA_INVALID_INVERTER)
+	  error("Preconditioner is not defined")
+    end
+
+    solver_name = "PipeFCG"
 
 	println("Running ", solver_name ," solver (solver precion ", param.dtype, " , sloppy precion ", param.dtype_sloppy, " )")
 
@@ -44,7 +49,7 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
         x .=@. 0.0
 	  end
 	  return
-	end #if param.maxiter == 0
+	end
 
 	mixed = (param.dtype_sloppy != param.dtype)
 
@@ -74,8 +79,7 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
     local u   = mixed == true ? zeros(param.dtype_sloppy, length(x)) : u_fp
 	local m   = zeros(param.dtype_sloppy, length(x))
     local n   = zeros(param.dtype_sloppy, length(x))
-
-    local rOld= zeros(param.dtype_sloppy, length(x))
+    local v   = zeros(param.dtype_sloppy, length(x))
 
 	local rPre = zeros(param.dtype_precondition, length(r))
     local pPre = zeros(param.dtype_precondition, length(r))
@@ -109,7 +113,8 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 	Precond(m, w)	    #   m <- Bw
 	MatSloppy(n, m)		#   n <- Am
 
-	α  = γ / δ; β = 0.0
+    η  = δ
+	α  = γ / η; β = 0.0
 
 	z .=@. n           #  z <- n
 	q .=@. m           #  q <- m
@@ -118,29 +123,31 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 	x .=@. x + α*p     #  x <- x + alpha * p
 	u .=@. u - α*q     #  u <- u - alpha * q
 	w .=@. w - α*z     #  w <- w - alpha * z
-	rOld .=@. r
 	r .=@. r - α*s     #  r <- r - alpha * s
-	rOld .=@. r - rOld
+
+    rnorm  = norm(r)
+	@printf("%s : first cycle residual: %1.15e \n", solver_name, rnorm/norm2b)
 
 	k = 1; converged = false
 
     while (k < param.maxiter && converged == false)
 
 	  γold = γ; γ = rdot(r, u)
-  	  γaux = rdot(rOld,u)
-  	  γnew = γaux >= 0.0 ? γaux : γ
-
+  	  τ     = rdot(s, u)
 	  δ     = rdot(w, u)
 	  unorm = norm(u)
 
       Σ  = sqrt(norm2(s))
   	  Ζ  = sqrt(norm2(z))
 
-	  Precond(m, w)		        #   m <- Bw
+      v .=@. w - r
+	  Precond(m, v)		    #   m <- u+B(w-r)
+	  m .=@. u + m
   	  MatSloppy(n, m)           #   n <- Am
 
-	  βold = β; β = γnew / γold
-	  αold = α; α = γ / (δ - β / αold * γ)
+	  βold = β; β = -τ / η
+	  η    = δ - β*β*η
+	  αold = α; α = γ / η
 
 	  z .=@. n + β*z     #  z <- n + beta * z
       q .=@. m + β*q     #  q <- m + beta * q
@@ -149,9 +156,7 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 	  x .=@. x + α*p     #  x <- x + alpha * p
       u .=@. u - α*q     #  u <- u - alpha * q
   	  w .=@. w - α*z     #  w <- w - alpha * z
-	  rOld .=@. r
   	  r .=@. r - α*s     #  r <- r - alpha * s
-  	  rOld .=@. r - rOld
 
       Δcr = (2.0*αold*Σ)*ϵ
       Δcs = (2.0*β*Σ+2.0*αold*Ζ)*ϵ
