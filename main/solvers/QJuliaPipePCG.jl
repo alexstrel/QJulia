@@ -33,11 +33,9 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
 	is_preconditioned = param.inv_type_precondition != QJuliaEnums.QJULIA_INVALID_INVERTER
 
-	println("AM I HERE??????????????????????????????????????????????")
-
     solver_name = is_preconditioned == false ? "PipeCG" : "PipePCG"
 
-    println("Running ", solver_name ," solver (solver precion ", param.dtype, " , sloppy precion ", param.dtype_sloppy, " )")
+    println("Running ", solver_name ," solver.")
 
     if is_preconditioned == true
       println("Preconditioner: ", param.inv_type_precondition)
@@ -54,176 +52,139 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
 	if mixed == true; println("Running mixed precision solver."); end
 
-    rnp = 0.0; pnp = 0.0; snp = 0.0; unp = 0.0; wnp = 0.0; xnp = 0.0; qnp = 0.0; znp = 0.0
-    replace = 0;totreplaces = 0
-
-    ϵ = eps(param.dtype)
+    ϵ = param.delta*eps(param.dtype_sloppy)
     sqrteps = sqrt(ϵ)
 
-    δs = 0.0; δz = 0.0; δpp = 0.0; δq = 0.0; δm = 0.0
-	errr = 0.0; errrprev = 0.0; errs = 0.0; errw = 0.0; errz = 0.0; errncr = 0.0; errncs = 0.0; errncw = 0.0; errncz = 0.0
+    replace = 0;totreplaces = 0
+	Δcr = 0.0; Δcs = 0.0; Δcw = 0.0; Δcz = 0.0
+    errr = 0.0; errrprev = 0.0; errs = 0.0; errw = 0.0; errz = 0.0
 
-    local z   = zeros(param.dtype, length(x))
-    local p   = zeros(param.dtype, length(x))
-    local w   = zeros(param.dtype, length(x))
-    local q   = zeros(param.dtype, length(x))
-    local m   = zeros(param.dtype, length(x))
-    local n   = zeros(param.dtype, length(x))
-    local r   = zeros(param.dtype, length(x))
-    local s   = zeros(param.dtype, length(x))
-	local m   = zeros(param.dtype, length(x))
-    local u   = zeros(param.dtype, length(x))
+    #full precision fields
+	local r_fp   = zeros(param.dtype, length(x))
+    #sloppy precision fields
+    local r   = mixed == true ? zeros(param.dtype_sloppy, length(x)) : r_fp
+    local z   = zeros(param.dtype_sloppy, length(x))
+    local p   = zeros(param.dtype_sloppy, length(x))
+    local w   = zeros(param.dtype_sloppy, length(x))
+    local q   = zeros(param.dtype_sloppy, length(x))
+    local u   = zeros(param.dtype_sloppy, length(x))
+    local m   = zeros(param.dtype_sloppy, length(x))
+    local n   = zeros(param.dtype_sloppy, length(x))
+    local s   = zeros(param.dtype_sloppy, length(x))
 
-    local y   = ones(param.dtype, length(x))
+	local rPre    = zeros(param.dtype_precondition, length(r))
+    local pPre    = zeros(param.dtype_precondition, length(r))
 
-    Precond(out, inp) = MatPrecon(out, inp, out, inp, K)
+    Precond(out, inp) = MatPrecon(out, inp, rPre, pPre, K)
 
     if param.use_init_guess == true
 	  #r = b - Ax
-	  Mat(r, x)
-	  r .=@. b - r
+	  Mat(r_fp, x)
+	  r_fp .=@. b - r_fp
     else
-	  r .=@. b
+	  r_fp .=@. b
     end
+	cpy(r, r_fp)
 
     norm2b = norm(b)
 
     Precond(u, r)	#  u <- Br
-    Mat(w, u)		#  w <- Au
+    MatSloppy(w, u)		#  w <- Au
 
-	δp    = norm(u) #
-    δb    = norm2b
-    rnorm = δp
+	unorm    = norm(u) #
 
-    # Compute matrix norm infinity : ||v|| = max_i |v_i|, ||A|| = max_i || a_i* ||, maximum row sum
-    Mat(s, y)
-    y .=@. abs.(s)
-    #9.43108354e-01
-    Anorm = findmax(y)[1]
-	mnz   = 6.0	#must be tunable
-    sqn   = mnz*sqrt( Float64( length(b) ) )
-    println("Extimated matrix norm: \n", Anorm)
+    stop = unorm*unorm*param.tol*param.tol
+    println(solver_name," : Initial residual = ", unorm / norm2b)
 
-    stop = δb*δb*param.tol*param.tol
-    println(solver_name," : Initial residual = ", δp / norm2b)
+	γ  = rdot(r, u)
+	δ  = rdot(w, u)
 
-    # zero cycle
-	δp  = norm(u)
-	γ   = rdot(r, u)
-	δ   = rdot(w, u)
+	Precond(m, w)		  #   m <- Bw
+	MatSloppy(n, m)           #   n <- Am
 
-	δx  = sqrt(norm2(x))
-	δu  = sqrt(norm2(u))
-	δw  = sqrt(norm2(w))
+    α = γ / δ
+	β = 0.0
+	z .=@. n          #  z <- n
+	q .=@. m          #  q <- m
+	p .=@. u          #  p <- u
+	s .=@. w          #  s <- w
 
-	Precond(m, w)	#   m <- Bw
-	Mat(n, m)		#   n <- Am
-
-	α    = γ / δ
-	β    = 0.0
-	γold = γ
-
-	z .=@. n           #  z <- n
-	q .=@. m           #  q <- m
-	p .=@. u           #  p <- u
-	s .=@. w           #  s <- w
 	x .=@. x + α*p     #  x <- x + alpha * p
 	u .=@. u - α*q     #  u <- u - alpha * q
 	w .=@. w - α*z     #  w <- w - alpha * z
 	r .=@. r - α*s     #  r <- r - alpha * s
 
-	k = 1; converged = false
+    k = 1; converged = false
 
     while (k < param.maxiter && converged == false)
 
-	  pnp = δpp; snp = δs; qnp = δq; znp = δz
-      rnp = δp;  unp = δu; wnp = δw; xnp = δx
+	  γold = γ; γ = rdot(r, u)
+      δ     = rdot(w, u)
+      unorm = norm(u)
 
-  	  δp = norm(u)
-      γ  = rdot(r, u)
-      δ  = rdot(w, u)
+	  Σ  = sqrt(norm2(s))
+  	  Ζ  = sqrt(norm2(z))
 
-      δs  = sqrt(norm2(s))
-  	  δz  = sqrt(norm2(z))
-  	  δpp = sqrt(norm2(p))
-  	  δq  = sqrt(norm2(q))
-  	  δm  = sqrt(norm2(m))
+	  @printf("%s: %d iteration, iter residual: %1.15e \n", solver_name, k, unorm/norm2b)
 
-  	  δx  = sqrt(norm2(x))
-   	  δu  = sqrt(norm2(u))
-  	  δw  = sqrt(norm2(w))
+	  Precond(m, w)		  #   m <- Bw
+	  MatSloppy(n, m)           #   n <- Am
 
-  	  Precond(m, w)		  #   m <- Bw
-  	  Mat(n, m)           #   n <- Am
-
-	  βold = β
-      β = γ / γold
-	  αold = α
-      α = γ / (δ - β / αold * γ)
+      βold = β; β = γ / γold
+      αold = α; α = γ / (δ - β / α * γ)
 
       z .=@. n + β*z     #  z <- n + beta * z
       q .=@. m + β*q     #  q <- m + beta * q
       p .=@. u + β*p     #  p <- u + beta * p
       s .=@. w + β*s     #  s <- w + beta * s
-	  x .=@. x + α*p     #  x <- x + alpha * p
+
+      x .=@. x + α*p     #  x <- x + alpha * p
       u .=@. u - α*q     #  u <- u - alpha * q
-  	  w .=@. w - α*z     #  w <- w - alpha * z
+	  w .=@. w - α*z     #  w <- w - alpha * z
       r .=@. r - α*s     #  r <- r - alpha * s
-      γold = γ
 
-      errncr = sqrt(Anorm*xnp+2.0*Anorm*abs(αold)*δpp+rnp+2.0*abs(αold)*δs)*ϵ
-      errncw = sqrt(Anorm*unp+2.0*Anorm*abs(αold)*δq+wnp+2.0*abs(αold)*δz)*ϵ
+	  Δcr = (2.0*αold*Σ)*ϵ
+      Δcs = (2.0*β*Σ+2.0*αold*Ζ)*ϵ
+	  Δcw = (2.0*αold*Ζ)*ϵ
+	  Δcz = (2.0*β*Ζ)*ϵ
 
-      if k > 1
-        errncs = sqrt(Anorm*unp+2.0*Anorm*abs(βold)*pnp+wnp+2.0*abs(βold)*snp)*ϵ
-        errncz = sqrt((sqn+2)*Anorm*δm+2.0*Anorm*abs(βold)*qnp+2.0*abs(βold)*znp)*ϵ
-      end
-
-      if k == 1
-        errr = sqrt((sqn+1)*Anorm*xnp+δb)*ϵ+sqrt(abs(αold)*sqn*Anorm*δpp)*ϵ+errncr
-        errs = sqrt(sqn*Anorm*δpp)*ϵ
-        errw = sqrt(sqn*Anorm*unp)*ϵ+sqrt(abs(αold)*sqn*Anorm*δq)*ϵ+errncw
-        errz = sqrt(sqn*Anorm*δq)*ϵ
-      elseif replace == 1
-		println("Replace reliable parameters..")
+      if k == 1 || replace == 1
+		println("(Re-)initialize reliable parameters..")
         errrprev = errr
-        errr = sqrt((sqn+1)*Anorm*δx+δb)*ϵ
-        errs = sqrt(sqn*Anorm*δpp)*ϵ
-        errw = sqrt(sqn*Anorm*δu)*ϵ
-        errz = sqrt(sqn*Anorm*δq)*ϵ
+        errr = Δcr
+        errs = Δcs
+        errw = Δcw
+        errz = Δcz
         replace = 0
       else
         errrprev = errr
-        errr = errr+abs(αold)*abs(βold)*errs+abs(αold)*errw+errncr+abs(αold)*errncs
-        errs = errw+abs(βold)*errs+errncs
-        errw = errw+abs(αold)*abs(βold)*errz+errncw+abs(αold)*errncz
-        errz = abs(βold)*errz+errncz
+        errr = errr + αold*errs + Δcr
+        errs = β*errs + errw + αold*errz + Δcs
+        errw = errw + αold*errz + Δcw
+        errz = β*errz + Δcz
       end
 
-	  converged = (γ > stop) ? false : true
-      norm2r = 0.0
-
-      if ((k > 1 && errrprev <= (sqrteps * rnp) && errr > (sqrteps * δp)) || converged == true)
+      if (k > 1 && errrprev <= (sqrteps * sqrt(γold)) && errr > (sqrteps * sqrt(γ)))
 		println("Start reliable update...")
-        Mat(r,x)        #  r <- Ax - b
-        r .=@. b - r
-		norm2r = norm(r)
+        Mat(r_fp,x)        #  r <- Ax - b
+        r_fp .=@. b - r_fp
+		rnorm = norm(r_fp)
+		cpy(r, r_fp)
         Precond(u, r)   #  u <- Br
-        Mat(w,u)        #  w <- Au
-        Mat(s,p)        #  s <- Ap
+        MatSloppy(w,u)        #  w <- Au
+        MatSloppy(s,p)        #  s <- Ap
         Precond(q,s)    #  q <- Bs
-        Mat(z,q)        #  z <- Aq
-        @printf("True residual after update %1.15e (relative %1.15e).\n", norm2r, norm2r/norm2b)
+        MatSloppy(z,q)        #  z <- Aq
+        @printf("True residual after update %1.15e (relative %1.15e).\n", rnorm, rnorm/norm2b)
         replace = 1;  totreplaces +=1
       end
 	  # Check convergence:
-	  rnorm = δp
-	  #converged = converged == true ? ((norm2r > stop) ? false : true) : false;
-	  #converged = (γ > stop) ? false : true
-	  @printf("%s: %d iteration, iter residual: %1.15e \n", solver_name, k, δp/norm2b)
+	  converged = (γ > stop) ? false : true
 	  # Update iter index
 	  k += 1
     end # while
+
+	@printf("Finish %s: %d iterations, total restarst: %d \n", solver_name, k, totreplaces)
 
 end # solver
 

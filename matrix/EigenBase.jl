@@ -39,10 +39,10 @@ mutable struct PrecondDescr
 
 end #PrecondDescr
 
-CreateEigenPreconditioner_qj(vals,innerIndices,outerIndexPtr,descr) = ccall((:CreatePreconditioner, "libeigenwrapperlib"), Cvoid, (Ptr{Cvoid},Ptr{Cint},Ptr{Cint},Ref{PrecondDescr}),vals,innerIndices,outerIndexPtr,descr)
+CreateEigenPreconditioner_qj(vals,innerIndices,outerIndexPtr,descr) = ccall((:CreatePreconditioner, "libeigenpc"), Cvoid, (Ptr{Cvoid},Ptr{Cint},Ptr{Cint},Ref{PrecondDescr}),vals,innerIndices,outerIndexPtr,descr)
 
-ApplyEigenPreconditioner_qj(out, in, descr) = ccall((:ApplyPreconditioner, "libeigenwrapperlib"), Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}, Ref{PrecondDescr}),out, in, descr)
+ApplyEigenPreconditioner_qj(out, in, descr) = ccall((:ApplyPreconditioner, "libeigenpc"), Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}, Ref{PrecondDescr}),out, in, descr)
 
-DestroyEigenPreconditioner_qj(descr) = ccall((:DestroyPreconditioner, "libeigenwrapperlib"), Cvoid, (Ref{PrecondDescr},),descr)
+DestroyEigenPreconditioner_qj(descr) = ccall((:DestroyPreconditioner, "libeigenpc"), Cvoid, (Ref{PrecondDescr},),descr)
 
 end #EigenBase

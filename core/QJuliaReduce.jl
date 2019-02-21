@@ -31,13 +31,13 @@ mm_add  = QJuliaIntrinsics.mm_add
 mm_sub  = QJuliaIntrinsics.mm_sub
 mm_mad  = QJuliaIntrinsics.mm_mad
 
-@inline function mm_dot(x::Vector{m256d}, y::Vector{m256d}) 
-                 global res = m256d(ntuple(i->0.0, 4)) 
-                 for i in 1:length(x)  
+@inline function mm_dot(x::Vector{m256d}, y::Vector{m256d})
+                 local res = m256d(ntuple(i->0.0, 4))
+                 for i in 1:length(x)
                    a   = mm_mul(x[i], y[i])
                    res = mm_add(res,a)
                  end
-                 
+
                  send_buff = [res[1].value, res[2].value, res[3].value, res[4].value]
                  if (blas_global_reduction == true)
                    recv_buff = zeros(Cdouble, 4)
@@ -46,24 +46,29 @@ mm_mad  = QJuliaIntrinsics.mm_mad
                    recv_buff = send_buff
                  end
 
-                 return (recv_buff[1]+recv_buff[2]+recv_buff[3]+recv_buff[4]) 
+                 return (recv_buff[1]+recv_buff[2]+recv_buff[3]+recv_buff[4])
 end #mm_dot
 
-@inline function gnorm2(x::Vector{T})  where T <: AbstractFloat 
-                 global res = 0.0 
+@inline function gnorm2(x::Vector{T})  where T <: AbstractFloat
+	             #set precision for the big float if necessary.
+	             if(T == BigFloat); setprecision(T, 128); end
+	             local res::T = 0.0
+
                  for e in x; res += e*e; end
 
+
                  if (blas_global_reduction == true)
-                   val = MPI.Allreduce(res, MPI.SUM, MPI.COMM_WORLD)
+				   resd = Float64(res)
+                   val  = MPI.Allreduce(resd, MPI.SUM, MPI.COMM_WORLD)
                  else
                    val = res
                  end
 
-                 return val 
+                 return val
 end #gnorm2
 
-@inline function gnorm2(x::Vector{Complex{T}})  where T <: AbstractFloat 
-                 local res = 0.0 
+@inline function gnorm2(x::Vector{Complex{T}})  where T <: AbstractFloat
+                 local res = 0.0
                  for e in x; res += abs2(e); end
 
                  if (blas_global_reduction == true)
@@ -72,11 +77,11 @@ end #gnorm2
                    val = res
                  end
 
-                 return val 
+                 return val
 end #gnorm2
 
-@inline function gnorm2(x::AbstractArray)  
-                 local res = 0.0 
+@inline function gnorm2(x::AbstractArray)
+                 local res = 0.0
                  for i in 1:length(x); res += abs2(x[i]); end
 
                  if (blas_global_reduction == true)
@@ -85,14 +90,14 @@ end #gnorm2
                    val = res
                  end
 
-                 return res 
+                 return res
 end #gnorm2
 
-@inline function cDotProductNormX(x::Vector{T}, y::Vector{T})  where T <: AbstractFloat 
-                 local cres = 0.0+0.0im 
+@inline function cDotProductNormX(x::Vector{T}, y::Vector{T})  where T <: AbstractFloat
+                 local cres = 0.0+0.0im
                  local rres = 0.0
 
-                 cx = view(reinterpret(Complex{T}, x), :) 
+                 cx = view(reinterpret(Complex{T}, x), :)
                  cy = view(reinterpret(Complex{T}, y), :)
 
                  for i in 1:length(cx)
@@ -101,7 +106,7 @@ end #gnorm2
                     rres += abs2(conjcx)
                  end
 
-                 send_buff = [real(cres), imag(cres), rres] 
+                 send_buff = [real(cres), imag(cres), rres]
 
                  if blas_global_reduction == true
                    recv_buff = zeros(Cdouble, 3)
@@ -116,34 +121,43 @@ end #cDotProductNormX
 @inline function reDotProductNormX(x::Vector{T}, y::Vector{T})  where T <: AbstractFloat
 
 	local xdty = 0.0
-	local xnrm = 0.0  
+	local xnrm = 0.0
 
 	for i in 1:length(x)
 		xdty += (x[i] * y[i])
 		xnrm += abs2(x[i])
 	end
 	send_buff = [xdty, xnrm]
-	if blas_global_reduction == true 
+	if blas_global_reduction == true
 		recv_buff = zeros(Cdouble, 2)
 		MPI.Allreduce!(send_buff, recv_buff, MPI.SUM, MPI.COMM_WORLD)
 	else
 		recv_buff = send_buff
 	end
 	return (recv_buff[1], recv_buff[2])
-end #reDotProductNormX    
+end #reDotProductNormX
 
-@inline function reDotProduct(x::Vector{T}, y::Vector{T})  where T <: AbstractFloat 
-                 local res = 0.0 
+@inline function reDotProduct(x::Vector{T}, y::Vector{T})  where T <: AbstractFloat
+	             #set precision for the big float if necessary.
+	             if(T == BigFloat); setprecision(T, 128); end
+                 local res::T = 0.0
 
                  for i in 1:length(x); res += x[i]*y[i]; end
 
-                 return (blas_global_reduction == true ?  MPI.Allreduce(res, MPI.SUM, MPI.COMM_WORLD) : res)
+				 #println("Info : ", sizeof(res), " res = ", res)
+				 #resstrn = string(res)
+				 #println("String = ", resstrn)
+				 #resd1 = parse(Float64, resstrn[1:16]) # do parsing
+				 #resd2 = parse(Int64, resstrn[17:32]) # do parsing
+				 resd = Float64(res)
+
+                 return (blas_global_reduction == true ?  MPI.Allreduce(resd, MPI.SUM, MPI.COMM_WORLD) : res)
 end #reDotProduct
 
-@inline function cDotProduct(x::Vector{T}, y::Vector{T})  where T <: AbstractFloat 
-                 local res = 0.0+0.0im 
+@inline function cDotProduct(x::Vector{T}, y::Vector{T})  where T <: AbstractFloat
+                 local res = 0.0+0.0im
 
-                 cx = view(reinterpret(Complex{T}, x), :) 
+                 cx = view(reinterpret(Complex{T}, x), :)
                  cy = view(reinterpret(Complex{T}, y), :)
 
                  for i in 1:length(cx); res += conj(cx[i]) * cy[i]; end
@@ -153,5 +167,3 @@ end #reDotProduct
 
 
 end #QJuliaReduce
-
-

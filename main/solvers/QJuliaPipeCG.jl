@@ -27,15 +27,19 @@ cpy      = QJuliaBlas.cpy
 	K(outSloppy, inpSloppy)
 	cpy(out, outSloppy)       #noop for the alias refs
 
-end
+  end
 
 function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, param::QJuliaSolvers.QJuliaSolverParam_qj, K::Function, extra_args...)
 
-	println("WARNING: this solver is in WIP!")
+	is_preconditioned = param.inv_type_precondition != QJuliaEnums.QJULIA_INVALID_INVERTER
 
-    solver_name = "PipeCG"
+    solver_name = is_preconditioned == false ? "PipeCG" : "PipePCG"
 
-    println("Running ", solver_name ," solver (solver precion ", param.dtype, " , sloppy precion ", param.dtype_sloppy, " )")
+    println("Running ", solver_name ," solver.")
+
+    if is_preconditioned == true
+      println("Preconditioner: ", param.inv_type_precondition)
+    end
 
     if (param.maxiter == 0)
       if param.use_init_guess == false
@@ -48,161 +52,125 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
 	if mixed == true; println("Running mixed precision solver."); end
 
-    rnp = 0.0; pnp = 0.0; snp = 0.0; unp = 0.0; wnp = 0.0; xnp = 0.0; qnp = 0.0; znp = 0.0
-    replace = 0;totreplaces = 0
-
-    ϵ = eps(param.dtype)
+    ϵ = param.delta*eps(param.dtype_sloppy)
     sqrteps = sqrt(ϵ)
 
-    δs = 0.0; δz = 0.0; δpp = 0.0; δq = 0.0; δm = 0.0
-	errr = 0.0; errrprev = 0.0; errs = 0.0; errw = 0.0; errz = 0.0; errncr = 0.0; errncs = 0.0; errncw = 0.0; errncz = 0.0
+    replace = 0;totreplaces = 0
+	Δcr = 0.0; Δcs = 0.0; Δcw = 0.0; Δcz = 0.0
+    errr = 0.0; errrprev = 0.0; errs = 0.0; errw = 0.0; errz = 0.0
 
-    local z   = zeros(param.dtype, length(x))
-    local p   = zeros(param.dtype, length(x))
-    local w   = zeros(param.dtype, length(x))
-    local n   = zeros(param.dtype, length(x))
-    local r   = zeros(param.dtype, length(x))
-    local s   = zeros(param.dtype, length(x))
+    #full precision fields
+	local r_fp   = zeros(param.dtype, length(x))
+    #sloppy precision fields
+    local r   = mixed == true ? zeros(param.dtype_sloppy, length(x)) : r_fp
+    local z   = zeros(param.dtype_sloppy, length(x))
+    local p   = zeros(param.dtype_sloppy, length(x))
+    local w   = zeros(param.dtype_sloppy, length(x))
+    local n   = zeros(param.dtype_sloppy, length(x))
+    local s   = zeros(param.dtype_sloppy, length(x))
 
-    local y   = ones(param.dtype, length(x))
-
-    Precond(out, inp) = MatPrecon(out, inp, out, inp, K)
+    Precond(out, inp) = MatPrecon(out, inp, rPre, pPre, K)
 
     if param.use_init_guess == true
 	  #r = b - Ax
-	  Mat(r, x)
-	  r .=@. b - r
+	  Mat(r_fp, x)
+	  r_fp .=@. b - r_fp
     else
-	  r .=@. b
+	  r_fp .=@. b
     end
+	cpy(r, r_fp)
 
     norm2b = norm(b)
+	rnorm  = norm(r) #
 
-    Mat(w, r)		#  w <- Ar
+    MatSloppy(w, r)		#  w <- Ar
 
-	δp    = norm(r) #
-    δb    = norm2b
-    rnorm = δp
+    stop = rnorm*rnorm*param.tol*param.tol
+    println(solver_name," : Initial residual = ", rnorm / norm2b)
 
-    # Compute matrix norm infinity : ||v|| = max_i |v_i|, ||A|| = max_i || a_i* ||, maximum row sum
-    Mat(s, y)
-    y .=@. abs.(s)
-    #9.43108354e-01
-    Anorm = findmax(y)[1]
-	mnz   = 10.0	#must be tunable
-    sqn   = mnz*sqrt( Float64( length(b) ) )
-    println("Extimated matrix norm: \n", Anorm)
+	γ  = rdot(r, r)
+	δ  = rdot(w, r)
 
-    stop = δb*δb*param.tol*param.tol
-    println(solver_name," : Initial residual = ", δp / norm2b)
+	MatSloppy(n, w)           #   n <- Aw
 
-    # zero cycle
-	δp  = norm(r)
-	γ   = rdot(r, r)
-	δ   = rdot(w, r)
+    α = γ / δ
+	β = 0.0
+	z .=@. n          #  z <- n
+	p .=@. r          #  p <- u
+	s .=@. w          #  s <- w
 
-	δx  = sqrt(norm2(x))
-	δu  = 0.0#sqrt(norm2(r))
-	δw  = sqrt(norm2(w))
-
-	Mat(n, w)		#   n <- Aw
-
-	α    = γ / δ
-	β    = 0.0
-	γold = γ
-
-	z .=@. n           #  z <- n
-	p .=@. r           #  p <- u
-	s .=@. w           #  s <- w
 	x .=@. x + α*p     #  x <- x + alpha * p
 	w .=@. w - α*z     #  w <- w - alpha * z
 	r .=@. r - α*s     #  r <- r - alpha * s
 
-	k = 1; converged = false
+    k = 1; converged = false
 
     while (k < param.maxiter && converged == false)
 
-	  pnp = δpp; snp = δs; qnp = δq; znp = δz
-      rnp = δp;  unp = δu; wnp = δw; xnp = δx
+	  γold = γ; γ = rdot(r, r)
+      δ     = rdot(w, r)
+      rnorm = norm(r)
 
-  	  δp = norm(r)
-      γ  = rdot(r, r)
-      δ  = rdot(w, r)
+	  Σ  = sqrt(norm2(s))
+  	  Ζ  = sqrt(norm2(z))
 
-      δs  = sqrt(norm2(s))
-  	  δz  = sqrt(norm2(z))
-  	  δpp = sqrt(norm2(p))
+	  @printf("%s: %d iteration, iter residual: %1.15e \n", solver_name, k, rnorm/norm2b)
 
-  	  δx  = sqrt(norm2(x))
-  	  δw  = sqrt(norm2(w))
+	  MatSloppy(n, w)           #   n <- Aw
 
-  	  Mat(n, w)           #   n <- Am
-
-	  βold = β
-      β = γ / γold
-	  αold = α
-      α = γ / (δ - β / αold * γ)
+      βold = β; β = γ / γold
+      αold = α; α = γ / (δ - β / α * γ)
 
       z .=@. n + β*z     #  z <- n + beta * z
       p .=@. r + β*p     #  p <- u + beta * p
       s .=@. w + β*s     #  s <- w + beta * s
-	  x .=@. x + α*p     #  x <- x + alpha * p
-  	  w .=@. w - α*z     #  w <- w - alpha * z
+
+      x .=@. x + α*p     #  x <- x + alpha * p
+	  w .=@. w - α*z     #  w <- w - alpha * z
       r .=@. r - α*s     #  r <- r - alpha * s
-      γold = γ
 
-      errncr = sqrt(Anorm*xnp+2.0*Anorm*abs(αold)*δpp+rnp+2.0*abs(αold)*δs)*ϵ
-      errncw = sqrt(Anorm*unp+2.0*Anorm*abs(αold)*δq+wnp+2.0*abs(αold)*δz)*ϵ
+	  Δcr = (2.0*αold*Σ)*ϵ
+      Δcs = (2.0*β*Σ+2.0*αold*Ζ)*ϵ
+	  Δcw = (2.0*αold*Ζ)*ϵ
+	  Δcz = (2.0*β*Ζ)*ϵ
 
-      if k > 1
-        errncs = sqrt(Anorm*unp+2.0*Anorm*abs(βold)*pnp+wnp+2.0*abs(βold)*snp)*ϵ
-        errncz = sqrt((sqn+2)*Anorm*δm+2.0*Anorm*abs(βold)*qnp+2.0*abs(βold)*znp)*ϵ
-      end
-
-      if k == 1
-        errr = sqrt((sqn+1)*Anorm*xnp+δb)*ϵ+sqrt(abs(αold)*sqn*Anorm*δpp)*ϵ+errncr
-        errs = sqrt(sqn*Anorm*δpp)*ϵ
-        errw = sqrt(sqn*Anorm*unp)*ϵ+sqrt(abs(αold)*sqn*Anorm*δq)*ϵ+errncw
-        errz = sqrt(sqn*Anorm*δq)*ϵ
-      elseif replace == 1
-		println("Replace reliable parameters..")
+      if k == 1 || replace == 1
+		println("(Re-)initialize reliable parameters..")
         errrprev = errr
-        errr = sqrt((sqn+1)*Anorm*δx+δb)*ϵ
-        errs = sqrt(sqn*Anorm*δpp)*ϵ
-        errw = sqrt(sqn*Anorm*δu)*ϵ
-        errz = sqrt(sqn*Anorm*δq)*ϵ
+        errr = Δcr
+        errs = Δcs
+        errw = Δcw
+        errz = Δcz
         replace = 0
       else
         errrprev = errr
-        errr = errr+abs(αold)*abs(βold)*errs+abs(αold)*errw+errncr+abs(αold)*errncs
-        errs = errw+abs(βold)*errs+errncs
-        errw = errw+abs(αold)*abs(βold)*errz+errncw+abs(αold)*errncz
-        errz = abs(βold)*errz+errncz
+        errr = errr + αold*errs + Δcr
+        errs = β*errs + errw + αold*errz + Δcs
+        errw = errw + αold*errz + Δcw
+        errz = β*errz + Δcz
       end
 
-	  converged = (γ > stop) ? false : true
-      norm2r = 0.0
-
-      if ((k > 1 && errrprev <= (sqrteps * rnp) && errr > (sqrteps * δp)) || converged == true)
+      if (k > 1 && errrprev <= (sqrteps * sqrt(γold)) && errr > (sqrteps * sqrt(γ)))
 		println("Start reliable update...")
-        Mat(r,x)        #  r <- Ax - b
-        r .=@. b - r
-		norm2r = norm(r)
-        Mat(w,r)        #  w <- Ar
-		Mat(s,p)        #  s <- Ap
-        Mat(z,s)        #  z <- As
-        @printf("True residual after update %1.15e (relative %1.15e).\n", norm2r, norm2r/norm2b)
+        Mat(r_fp,x)        #  r <- Ax - b
+        r_fp .=@. b - r_fp
+		rnorm = norm(r_fp)
+		cpy(r, r_fp)
+
+        MatSloppy(w,r)        #  w <- Ar
+        MatSloppy(s,p)        #  s <- Ap
+        MatSloppy(z,s)        #  z <- As
+        @printf("True residual after update %1.15e (relative %1.15e).\n", rnorm, rnorm/norm2b)
         replace = 1;  totreplaces +=1
       end
 	  # Check convergence:
-	  rnorm = δp
-	  #converged = converged == true ? ((norm2r > stop) ? false : true) : false;
-	  #converged = (γ > stop) ? false : true
-	  @printf("%s: %d iteration, iter residual: %1.15e \n", solver_name, k, δp/norm2b)
+	  converged = (γ > stop) ? false : true
 	  # Update iter index
 	  k += 1
     end # while
 
+	@printf("Finish %s: %d iterations, total restarst: %d \n", solver_name, k, totreplaces)
+
 end # solver
 
-end # module QJuliaPipeCG
+end # module

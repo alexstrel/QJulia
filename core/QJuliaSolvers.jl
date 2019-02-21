@@ -34,8 +34,10 @@ module QJuliaSolvers
     # Whether to keep the partial solution accumuator in sloppy precision
     use_sloppy_partial_accumulator::Bool
 
-    # Whether to use a pipelined solver with less global sums
-    pipeline::Bool
+    # Whether to use a pipelined solver with less global sums, gives pipeline length
+    pipeline::Int
+	# Krylov subspace dim
+	nKrylov::Int
     # Preserve the source or not in the linear solver (deprecated)
     preserve_source::Bool
     # Whether to use initial guess
@@ -75,7 +77,8 @@ module QJuliaSolvers
 				 1e-1,
 				 1e-1,
 				 false,
-				 false,
+				 0,
+				 0,
 				 true,
                                  false,
 				 Float64, Float64, Float64, Float64,
