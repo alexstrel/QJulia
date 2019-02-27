@@ -175,7 +175,7 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
       end
 
 	  # Check convergence:
-	  converged = (unorm > stop) ? false : true
+	  converged = false # (unorm > stop) ? false : true
 	  @printf("%s: %d iteration, iter residual: %1.15e\n", solver_name, k, unorm/norm2b)
 
       if ((k > 1 && errrprev <= (sqrteps * sqrt(γold)) && errr > (sqrteps * sqrt(γ))) || converged == true)
