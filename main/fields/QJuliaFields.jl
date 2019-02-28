@@ -203,7 +203,11 @@ mutable struct QJuliaLatticeField_qj{NSpin<:Any, NColor<:Any, NBlock<:Any} <: QJ
      # Set the field array total elements:
      tot_elems = fdesc.siteSubset*(fdesc.geom == QJuliaEnums.QJULIA_SCALAR_GEOMETRY ? NSpin : NColor)*NColor*fdesc.real_volumeCB
 
-     v = Matrix{fdesc.register_type}(undef, tot_elems, Int(fdesc.geom)*NBlock)
+     if fdesc.location == QJuliaEnums.QJULIA_CPU_FIELD_LOCATION
+       v = Matrix{fdesc.register_type}(undef, tot_elems, Int(fdesc.geom)*NBlock)
+     else
+       v = nothing
+     end
 
      # call constructor
      new(fdesc, NSpin, NColor, NBlock, v)
@@ -212,7 +216,9 @@ mutable struct QJuliaLatticeField_qj{NSpin<:Any, NColor<:Any, NBlock<:Any} <: QJ
 
   function QJuliaLatticeField_qj{NSpin,NColor,NBlock}(field::QJuliaLatticeField_qj, parity::QJuliaEnums.QJuliaParity_qj) where NSpin where NColor where NBlock
 
-     if(field.field_desc.siteSubset == 1); error("Cannot reference a parity field from a parity field"); end
+     if field.v == nothing; error("Cannot reference an empty field"); end
+     if field.field_desc.siteSubset == 1; error("Cannot reference a parity field from a parity field"); end
+
      pfdesc = deepcopy(field.field_desc)
 
      pfdesc.X        = NTuple{QJULIA_MAX_DIMS, Int}(ntuple(i->(i == 1 ? field.field_desc.X[i] >> 1 : field.field_desc.X[i]), QJULIA_MAX_DIMS))
