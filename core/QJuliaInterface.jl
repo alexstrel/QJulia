@@ -167,9 +167,9 @@ module QJuliaInterface
     Ls::Cint
 
     # MDWF coefficients
-    b_5::NTuple{QJULIA_MAX_DWF_LS, Cdouble}
+    b_5::NTuple{QJULIA_MAX_DWF_LS, ComplexF64}
     # will be used only for the mobius type of Fermion
-    c_5::NTuple{QJULIA_MAX_DWF_LS, Cdouble}
+    c_5::NTuple{QJULIA_MAX_DWF_LS, ComplexF64}
 
     # Twisted mass parameter
     mu::Cdouble
@@ -198,6 +198,8 @@ module QJuliaInterface
     reliable_delta::Cdouble
     # Reliable update tolerance used in post multi-shift solver refinement
     reliable_delta_refinement::Cdouble
+	# Whether to use alternative reliable updates
+    use_alternative_reliable::Cint
     # Whether to keep the partial solution accumuator in sloppy precision
     use_sloppy_partial_accumulator::Cint
 
@@ -353,6 +355,15 @@ module QJuliaInterface
 
     # Relaxation parameter used in GCR-DD (default = 1.0)
     omega::Cdouble
+#new!
+	# Basis for CA algorithms
+    ca_basis::QJuliaEnums.QJuliaCABasis_qj
+
+    # Minimum eigenvalue for Chebyshev CA basis
+    ca_lambda_min::Cdouble
+
+    # Maximum eigenvalue for Chebyshev CA basis
+    ca_lambda_max::Cdouble
 
     # Number of preconditioner cycles to perform per iteration
     precondition_cycle::Cint
@@ -421,8 +432,8 @@ module QJuliaInterface
 				 0.0,
 				 0.0,
 				 1,
-				 NTuple{QJULIA_MAX_DWF_LS, Cdouble}(ntuple(i->0, QJULIA_MAX_DWF_LS)),
-				 NTuple{QJULIA_MAX_DWF_LS, Cdouble}(ntuple(i->0, QJULIA_MAX_DWF_LS)),
+				 NTuple{QJULIA_MAX_DWF_LS, ComplexF64}(ntuple(i->ComplexF64(0.0, 0.0), QJULIA_MAX_DWF_LS)),
+				 NTuple{QJULIA_MAX_DWF_LS, ComplexF64}(ntuple(i->ComplexF64(0.0, 0.0), QJULIA_MAX_DWF_LS)),
 				 0.0,
 				 0.0,
 				 QJuliaEnums.QJULIA_TWIST_INVALID,
@@ -435,6 +446,7 @@ module QJuliaInterface
 				 256,
 				 1e-2,
 				 1e-2,
+                 0,
 				 0,
 				 1,
 				 10,
@@ -498,6 +510,9 @@ module QJuliaInterface
 				 QJuliaEnums.QJULIA_SILENT,
 				 0.1,
 				 8,
+				 1.0,
+				 QJuliaEnums.QJULIA_INVALID_BASIS,
+				 0.0,
 				 1.0,
 				 1,
 				 QJuliaEnums.QJULIA_ADDITIVE_SCHWARZ,

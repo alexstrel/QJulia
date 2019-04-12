@@ -11,7 +11,7 @@ using MPI
 
 norm2   = QJuliaReduce.gnorm2
 rdot    = QJuliaReduce.reDotProduct
-verbose = true
+verbose = false
 
 const ε = eps(Float64)
 

@@ -15,7 +15,7 @@ using MPI
 using Printf
 
 #matrix_path = "/home/astrel/data/bcsstk15/bcsstk15.mtx"
-matrix_path = "/home/alex/data/bcsstk03/bcsstk03.mtx"
+matrix_path = "/home/astrel/data/bcsstk03/bcsstk03.mtx"
 #matrix_path = "/home/astrel/data/nasa2146/nasa2146.mtx"
 #matrix_path = "/home/astrel/data/nasa2910/nasa2910.mtx"
 #matrix_path = "/home/astrel/data/nasa4704/nasa4704.mtx"
@@ -67,7 +67,6 @@ v32 = ones(data_type_sloppy, csrM.Dims[2])
 
 M(v64, w64)
 w64 .=@. abs.(v64)
-#9.43108354e-01
 Ainfnorm = findmax(w64)[1]
 println("\nExtimated matrix inf norm: \n", Ainfnorm)
 
@@ -121,10 +120,10 @@ solv_param.dtype_sloppy           = prec_sloppy
 solv_param.inv_type               = QJuliaEnums.QJULIA_PIPEPCG_INVERTER
 #solv_param.inv_type               = QJuliaEnums.QJULIA_PCG_INVERTER
 solv_param.inv_type_precondition  = QJuliaEnums.QJULIA_INVALID_INVERTER
-solv_param.tol                    = 1e-8
-solv_param.delta                  = 1e-3
+solv_param.tol                    = 1e-10
+solv_param.delta                  = 1e-1
 #
-solv_param.maxiter                = 10000
+solv_param.maxiter                = 1000
 solv_param.Nsteps                 = 2
 
 do_unit_source = true

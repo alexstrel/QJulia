@@ -36,8 +36,8 @@ module QJuliaSolvers
 
     # Whether to use a pipelined solver with less global sums, gives pipeline length
     pipeline::Int
-	# Krylov subspace dim
-	nKrylov::Int
+    # Krylov subspace dim
+    nKrylov::Int
     # Preserve the source or not in the linear solver (deprecated)
     preserve_source::Bool
     # Whether to use initial guess
@@ -119,7 +119,7 @@ module QJuliaSolvers
         QJuliaPipeNFCG.solver(out, inp, m, mSloppy, param, K)
       end
     elseif param.inv_type == QJuliaEnums.QJULIA_PIPECG_INVERTER
-      QJuliaPipeCG.solver(out, inp, m,mSloppy, param, K)		
+      QJuliaPipeCG.solver(out, inp, m,mSloppy, param, K)
     elseif param.inv_type == QJuliaEnums.QJULIA_PIPEPCG_INVERTER
       #QJuliaCGPCG.solver(out, inp, m,mSloppy, param, K)
       if K != identity_op

@@ -13,6 +13,8 @@ norm2    = QJuliaReduce.gnorm2
 rdot     = QJuliaReduce.reDotProduct
 cpy      = QJuliaBlas.cpy
 
+fcgdebug = false
+
 # References:
 # P. Sanan, S.M. Schnepp, and D.A. May, "Pipelined, Flexible Krylov Subspace Methods,"
 # SIAM Journal on Scientific Computing 2016 38:5, C441-C470,
@@ -37,7 +39,7 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
     is_preconditioned = param.inv_type_precondition != QJuliaEnums.QJULIA_INVALID_INVERTER
 
     if(param.inv_type_precondition == QJuliaEnums.QJULIA_INVALID_INVERTER)
-      error("Preconditioner is not defined")
+      println("WARNING : Preconditioner is not defined")
     end
 
     solver_name = "PipeFCG"
@@ -79,7 +81,6 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
     local u   = mixed == true ? zeros(param.dtype_sloppy, length(x)) : u_fp
     local m   = zeros(param.dtype_sloppy, length(x))
     local n   = zeros(param.dtype_sloppy, length(x))
-    local v   = zeros(param.dtype_sloppy, length(x))
 
     local rPre = zeros(param.dtype_precondition, length(r))
     local pPre = zeros(param.dtype_precondition, length(r))
@@ -105,10 +106,8 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
     println(solver_name," : Initial (relative) residual ", rnorm / norm2b)
 
     # zero cycle
-    unorm  = norm(u)
     γ      = rdot(r, u)
     δ      = rdot(w, u)
-    println(solver_name," : Initial preconditioned residual ", unorm)
 
     Precond(m, w)    #   m <- Bw
     MatSloppy(n, m)  #   n <- Am
@@ -130,19 +129,26 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
     k = 1; converged = false
 
+    Θ = 1.0
+
     while (k < param.maxiter && converged == false)
 
       γold = γ; γ = rdot(r, u)
       τ     = rdot(s, u)
       δ     = rdot(w, u)
-      unorm = norm(u)
+      rnorm = norm(r)
 
       Σ  = sqrt(norm2(s))
       Ζ  = sqrt(norm2(z))
 
-      v .=@. w - r
-      Precond(m, v)		    #   m <- u+B(w-r)
-      m .=@. u + m
+      if fcgdebug == true
+        Θ = rdot(r, w) / (rnorm*rnorm)
+        #println("Theta estimate :: ", Θ)
+      end
+
+      n .=@. w - Θ*r
+      Precond(m, n)		    #   m <- u+B(w-r)
+      m .=@. Θ*u + m
       MatSloppy(n, m)           #   n <- Am
 
       β = -τ / η
@@ -180,10 +186,10 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
       end
 
       # Check convergence:
-      converged = false # (unorm > stop) ? false : true
-      @printf("%s: %d iteration, iter residual: %1.15e\n", solver_name, k, unorm/norm2b)
+      converged = ((rnorm*rnorm) < stop)
+      @printf("%s: %d iteration, iter residual: %1.15e\n", solver_name, k, rnorm/norm2b)
 
-      do_restart = (γ < 0.0) || ( (k > 1 && errrprev <= (sqrteps * sqrt(γold)) && errr > (sqrteps * sqrt(abs(γ)))) || converged == true )
+      do_restart = (γ < 0.0) || ( (k > 1 && errrprev <= (sqrteps * sqrt(γold)) && errr > (sqrteps * sqrt(abs(γ)))))
 
       if do_restart == true
         println("Start reliable update...")
@@ -206,7 +212,7 @@ function solver(x::AbstractArray, b::AbstractArray, Mat::Any, MatSloppy::Any, pa
 
         γ = γ < 0.0 ? rdot(u_fp, r_fp) : γ
 
-        converged = (norm2r*norm2r > stop) ? false : true
+        converged = (norm2r*norm2r < stop)
 
         @printf("True residual after update %1.15e (relative %1.15e, stop criterio %1.15e).\n", norm2r, norm2r/norm2b, stop)
         replace = 1;  totreplaces +=1

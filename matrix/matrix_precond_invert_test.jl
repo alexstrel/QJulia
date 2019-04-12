@@ -20,7 +20,7 @@ MPI.Init()
 Random.seed!(2018)
 
 #matrix_path = "/home/astrel/data/nasa2146/nasa2146.mtx"
-matrix_path = "/home/alex/data/bcsstk03/bcsstk03.mtx"
+matrix_path = "/home/astrel/data/bcsstk03/bcsstk03.mtx"
 #matrix_path = "/home/alex/data/nasa2910/nasa2910.mtx"
 #matrix_path = "/home/astrel/data/nasa4704/nasa4704.mtx"
 #matrix_path = "/home/astrel/data/smt/smt.mtx"
@@ -63,7 +63,7 @@ pre_solv_param.maxiter   = 10
 pre_solv_param.Nsteps    = 1
 pre_solv_param.global_reduction = false
 
-do_ilu = true
+do_ilu = false
 
 if do_ilu == false
 
@@ -92,16 +92,19 @@ end
 
 solv_param = QJuliaSolvers.QJuliaSolverParam_qj()
 # Set up parameters
-solv_param.inv_type               = QJuliaEnums.QJULIA_PIPEPCG_INVERTER
+#solv_param.inv_type               = QJuliaEnums.QJULIA_PIPEPCG_INVERTER
+solv_param.inv_type               = QJuliaEnums.QJULIA_FCG_INVERTER
 solv_param.dtype                  = data_type
 solv_param.inv_type_precondition  = pre_solv_param.inv_type
 #solv_param.inv_type_precondition  = QJuliaEnums.QJULIA_INVALID_INVERTER
 solv_param.dtype_precondition     = pre_solv_param.dtype
 solv_param.tol                    = 1e-10
-#solv_param.delta                  = 1e-2
+solv_param.delta                  = 1e-1
 #
 solv_param.maxiter                = 1000
 solv_param.Nsteps                 = 2
+#nKrylov = 5 is the best choice for the NOTAY option
+solv_param.nKrylov                = 5
 
 do_unit_source = true
 if do_unit_source == true

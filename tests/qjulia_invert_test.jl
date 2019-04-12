@@ -23,9 +23,9 @@ using MPI
 
 #create function/type alias
 double  = Float64
-float   = Float32
+float   = Float64
 
-load_config_from_file = "" #"/home/astrel/Configs/wl_5p5_x2p38_um0p4125_cfg_1000.lime"
+load_config_from_file = "/home/astrel/Configs/wl_5p5_x2p38_um0p4125_cfg_1000.lime"
 
 ##############################################################################################
 
@@ -40,6 +40,8 @@ QUDARoutines.initCommsGridQuda_qj(length(QJuliaUtils.gridsize_from_cmdline), QJu
 QUDARoutines.initQuda_qj(0)
 
 Random.seed!(2019)
+
+solve_unit_source = true
 
 const lx = 16
 const ly = 16
@@ -64,7 +66,11 @@ sp_in = Vector{Complex{Float64}}(undef, splen)
 sp_ou = Vector{Complex{Float64}}(undef, splen)
 gauge = Matrix{Complex{Float64}}(undef, gflen, 4)
 
-QJuliaUtils.gen_random_spinor!(sp_in)
+if solve_unit_source == false
+  QJuliaUtils.gen_random_spinor!(sp_in)
+else
+  QJuliaUtils.gen_unit_spinor!(sp_ou)
+end
 
 gauge_param = QJuliaInterface.QJuliaGaugeParam_qj()
 gauge_param.X = (lx, ly, lz, lt)
@@ -114,8 +120,8 @@ plaq = Array{Cdouble, 1}(undef, 3)
 QUDARoutines.plaqQuda_qj(plaq)
 println("Computed plaquette is ", plaq[1], ", (spatial = ",  plaq[2], ", temporal = ", plaq[3], ")")
 
+mass = -0.4125
 #mass = -0.95
-mass = -0.95
 
 inv_param = QJuliaInterface.QJuliaInvertParam_qj()
 inv_param.residual_type = QJuliaEnums.QJULIA_L2_RELATIVE_RESIDUAL
@@ -123,20 +129,21 @@ inv_param.residual_type = QJuliaEnums.QJULIA_L2_RELATIVE_RESIDUAL
 #QJuliaInterface.printQudaInvertParam_qj(inv_param)
 
 inv_param.mass = mass
-inv_param.kappa = 1.0 / (2.0 * (1 + 3/gauge_param.anisotropy + mass))
-inv_param.maxiter = 1000
-inv_param.tol  = 1e-13
+inv_param.kappa = 1.0 / (2.0 * (1.0 + 3.0/gauge_param.anisotropy + mass))
+inv_param.maxiter = 200
+inv_param.tol  = 1e-9
 
 inv_param.cuda_prec = QJuliaEnums.QJULIA_DOUBLE_PRECISION
 inv_param.cuda_prec_sloppy = QJuliaEnums.QJULIA_SINGLE_PRECISION
 inv_param.cuda_prec_precondition = QJuliaEnums.QJULIA_HALF_PRECISION
 inv_param.solution_type = QJuliaEnums.QJULIA_MATPC_SOLUTION
 #inv_param.inv_type = QJuliaEnums.QJULIA_PIPEPCG_INVERTER
-inv_param.inv_type = QJuliaEnums.QJULIA_PCG_INVERTER
+inv_param.inv_type = QJuliaEnums.QJULIA_FCG_INVERTER
 
 println("Kappa = ",  inv_param.kappa)
 
 mdagm(out, inp)    = QUDARoutines.MatDagMatQuda_qj(out, inp, inv_param)
+mat(out, inp)    = QUDARoutines.MatQuda_qj(out, inp, inv_param)
 Doe(out, inp)      = QUDARoutines.dslashQuda_qj(out, inp, inv_param, QJuliaEnums.QJULIA_EVEN_PARITY)
 Deo(out, inp)      = QUDARoutines.dslashQuda_qj(out, inp, inv_param, QJuliaEnums.QJULIA_ODD_PARITY )
 
@@ -144,7 +151,7 @@ Deo(out, inp)      = QUDARoutines.dslashQuda_qj(out, inp, inv_param, QJuliaEnums
 precond_param = QJuliaInterface.QJuliaInvertParam_qj()
 
 precond_param.residual_type            = QJuliaEnums.QJULIA_L2_RELATIVE_RESIDUAL
-#precond_param.inv_type                 = QJuliaEnums.QJULIA_PCG_INVERTER
+#precond_param.inv_type                 = QJuliaEnums.QJULIA_PIPECG_INVERTER
 #precond_param.inv_type                 = QJuliaEnums.QJULIA_INVALID_INVERTER
 precond_param.inv_type                 = QJuliaEnums.QJULIA_LANMR_INVERTER #wroks for naive and fails for pipelined
 precond_param.dslash_type_precondition = QJuliaEnums.QJULIA_WILSON_DSLASH
@@ -153,7 +160,7 @@ precond_param.cuda_prec                = QJuliaEnums.QJULIA_DOUBLE_PRECISION
 precond_param.cuda_prec_sloppy         = QJuliaEnums.QJULIA_SINGLE_PRECISION
 precond_param.cuda_prec_precondition   = QJuliaEnums.QJULIA_DOUBLE_PRECISION
 precond_param.solution_type            = QJuliaEnums.QJULIA_MATPC_SOLUTION
-precond_param.maxiter                  = precond_param.inv_type == QJuliaEnums.QJULIA_PCG_INVERTER ? 30 : 16
+precond_param.maxiter                  = precond_param.inv_type == QJuliaEnums.QJULIA_PCG_INVERTER ? 30 : 10
 precond_param.Nsteps    	       = 1
 
 mdagmPre(out, inp)  = QUDARoutines.MatDagMatQuda_qj(out, inp, precond_param)
@@ -175,6 +182,16 @@ x_odd  = view(reinterpret(double, sp_ou), sp_real_parity_len+1:sp_real_len)
 b_even = view(reinterpret(double, sp_in), 1:sp_real_parity_len)
 b_odd  = view(reinterpret(double, sp_in), sp_real_parity_len+1:sp_real_len)
 
+tmpl_src_norm = norm(sp_ou)
+
+if solve_unit_source == true
+  mat(sp_in, sp_ou)
+  sp_ou .=@. 0.0
+end
+
+init_src_norm = norm(sp_in)
+println("Initial source norm:: ", init_src_norm, " , template src norm is: ", tmpl_src_norm)
+
 #Auxiliary field
 tmp = Vector{double}(undef, sp_real_len)
 
@@ -186,15 +203,15 @@ t_odd  = view(tmp, sp_real_parity_len+1:sp_real_len)
 
 #prepare source/solution:
 if inv_param.matpc_type == QJuliaEnums.QJULIA_MATPC_EVEN_EVEN
-# src = b_e + k D_eo b_o
-Deo(t_even, b_odd)
-x_odd .=@. b_even + inv_param.kappa*t_even
+  # src = b_e + k D_eo b_o
+  Deo(t_even, b_odd)
+  x_odd .=@. b_even + inv_param.kappa*t_even
 end
 
 #
-x_odd2 = dot(x_odd, x_odd)
+init_prec_src_norm = norm(x_odd)
 #
-println("Initial source norm: ", sqrt(x_odd2), " , requested tolerance: ", inv_param.tol)
+println("Initial precondtioned source norm:: ", init_prec_src_norm, " , requested tolerance: ", inv_param.tol)
 
 solv_param = QJuliaSolvers.QJuliaSolverParam_qj()
 # Set up parameters
@@ -203,6 +220,8 @@ solv_param.inv_type_precondition  = precond_param.inv_type
 solv_param.tol                    = inv_param.tol
 #
 solv_param.maxiter                = inv_param.maxiter
+solv_param.delta                  = 1e-2
+solv_param.nKrylov                = 4 #8 is very good for unit source
 solv_param.Nsteps                 = 2
 
 if precond_param.inv_type != QJuliaEnums.QJULIA_INVALID_INVERTER
@@ -220,9 +239,16 @@ println("True residual norm: ", sqrt(r2))
 
 #reconstruct source/solution:
 if inv_param.matpc_type == QJuliaEnums.QJULIA_MATPC_EVEN_EVEN
-# x_o = b_o + k D_oe x_e
-Doe(t_odd, x_even)
-x_odd .=@. b_odd + inv_param.kappa*t_odd
+  # x_o = b_o + k D_oe x_e
+  Doe(t_odd, x_even)
+  x_odd .=@. b_odd + inv_param.kappa*t_odd
+end
+
+if solve_unit_source == true
+  QJuliaUtils.gen_unit_spinor!(sp_in)
+  sp_ou .=@. sp_in - sp_ou
+  error_norm = norm(sp_ou)
+  println("Solution error: ", error_norm)
 end
 
 

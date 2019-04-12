@@ -15,24 +15,24 @@ end
   global blas_global_reduction = true
 end
 
-#create function/type alias
 #SSE
-m128d   = QJuliaRegisters.m128d
-m128    = QJuliaRegisters.m128
+double2   = QJuliaRegisters.double2
+float4    = QJuliaRegisters.float4
 #AVX/AVX2
-m256d   = QJuliaRegisters.m256d
-m256    = QJuliaRegisters.m256
+double4   = QJuliaRegisters.double4
+float8    = QJuliaRegisters.float8
 #AVX3
-m512d   = QJuliaRegisters.m512d
-m512    = QJuliaRegisters.m512
+double8   = QJuliaRegisters.double8
+float16   = QJuliaRegisters.float16
+
 
 mm_mul  = QJuliaIntrinsics.mm_mul
 mm_add  = QJuliaIntrinsics.mm_add
 mm_sub  = QJuliaIntrinsics.mm_sub
 mm_mad  = QJuliaIntrinsics.mm_mad
 
-@inline function mm_dot(x::Vector{m256d}, y::Vector{m256d})
-                 local res = m256d(ntuple(i->0.0, 4))
+@inline function mm_dot(x::Vector{double4}, y::Vector{double4})
+                 local res = double4((0.0, 0.0, 0.0, 0.0))
                  for i in 1:length(x)
                    a   = mm_mul(x[i], y[i])
                    res = mm_add(res,a)
@@ -50,15 +50,15 @@ mm_mad  = QJuliaIntrinsics.mm_mad
 end #mm_dot
 
 @inline function gnorm2(x::Vector{T})  where T <: AbstractFloat
-	             #set precision for the big float if necessary.
-	             if(T == BigFloat); setprecision(T, 128); end
-	             local res::T = 0.0
+	         #set precision for the big float if necessary.
+	         if(T == BigFloat); setprecision(T, 128); end
+	         local res::T = 0.0
 
                  for e in x; res += e*e; end
 
 
                  if (blas_global_reduction == true)
-				   resd = Float64(res)
+		   resd = Float64(res)
                    val  = MPI.Allreduce(resd, MPI.SUM, MPI.COMM_WORLD)
                  else
                    val = res

@@ -5,6 +5,7 @@ push!(LOAD_PATH, joinpath(@__DIR__, "..", "core"))
 push!(LOAD_PATH, joinpath(@__DIR__, "..", "libs/quda-routines"))
 push!(LOAD_PATH, joinpath(@__DIR__, "..", "main/fields"))
 
+import QJuliaGrid
 import QJuliaFields
 import QJuliaFieldUtils
 import QJuliaBlas
@@ -45,10 +46,10 @@ data_type = ComplexF32
 data_prec_type = ComplexF32
 data_sloppy_type = ComplexF32
 
-spinor_field_desc = QJuliaFields.QJuliaLatticeFieldDescr_qj{data_type}(QJuliaEnums.QJULIA_SCALAR_GEOMETRY, QJuliaEnums.QJULIA_INVALID_PARITY, false, 0, (lx,ly,lz,lt,ls))
+grid_desc = QJuliaGrid.QJuliaGridDescr_qj{data_type}(QJuliaEnums.QJULIA_CPU_FIELD_LOCATION, 0, (lx,ly,lz,lt,ls))
 
-cs_in = QJuliaFields.CreateColorSpinor(spinor_field_desc)
-cs_ou = QJuliaFields.CreateColorSpinor(spinor_field_desc)
+cs_in = QJuliaFields.CreateColorSpinor(grid_desc, QJuliaEnums.QJULIA_INVALID_PARITY)
+cs_ou = QJuliaFields.CreateColorSpinor(grid_desc, QJuliaEnums.QJULIA_INVALID_PARITY)
 
 QJuliaFieldUtils.gen_random_spinor!(cs_in)
 
@@ -71,9 +72,8 @@ gauge_param.cuda_prec_refinement_sloppy   = QJuliaEnums.QJULIA_HALF_PRECISION
 println("======= Gauge parameters =======")
 QUDARoutines.printQudaGaugeParam_qj(gauge_param)
 
-gauge_field_desc = QJuliaFields.QJuliaLatticeFieldDescr_qj{ComplexF32}(QJuliaEnums.QJULIA_VECTOR_GEOMETRY, QJuliaEnums.QJULIA_INVALID_PARITY, false, 0, (lx,ly,lz,lt))
+gauge_field = QJuliaFields.CreateGaugeField(grid_desc)
 
-gauge_field = QJuliaFields.CreateGaugeField(gauge_field_desc)
 QJuliaFieldUtils.construct_gauge_field!(gauge_field, 1, gauge_param)
 
 inv_param = QJuliaInterface.QJuliaInvertParam_qj()

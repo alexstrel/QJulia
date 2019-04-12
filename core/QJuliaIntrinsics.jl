@@ -4,14 +4,15 @@ import QJuliaRegisters
 
 #create function/type alias
 #SSE
-m128d   = QJuliaRegisters.m128d
-m128    = QJuliaRegisters.m128
+m128d   = QJuliaRegisters.double2
+m128    = QJuliaRegisters.float4
 #AVX/AVX2
-m256d   = QJuliaRegisters.m256d
-m256    = QJuliaRegisters.m256
+m256d   = QJuliaRegisters.double4
+m256    = QJuliaRegisters.float8
 #AVX3
-m512d   = QJuliaRegisters.m512d
-m512    = QJuliaRegisters.m512
+m512d   = QJuliaRegisters.double8
+m512    = QJuliaRegisters.float16
+
 
 m256dfma(a,b,c) = ccall("llvm.fma.v4f64", llvmcall, m256d, (m256d, m256d, m256d), a, b, c)
 m256fma(a,b,c ) = ccall("llvm.fma.v8f32", llvmcall, m256, (m256, m256, m256), a, b, c)
