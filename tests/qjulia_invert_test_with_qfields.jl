@@ -48,8 +48,8 @@ data_sloppy_type = ComplexF32
 
 grid_desc = QJuliaGrid.QJuliaGridDescr_qj{data_type}(QJuliaEnums.QJULIA_CPU_FIELD_LOCATION, 0, (lx,ly,lz,lt,ls))
 
-cs_in = QJuliaFields.CreateColorSpinor(grid_desc, QJuliaEnums.QJULIA_INVALID_PARITY)
-cs_ou = QJuliaFields.CreateColorSpinor(grid_desc, QJuliaEnums.QJULIA_INVALID_PARITY)
+cs_in = QJuliaFields.CreateColorSpinor(grid_desc)
+cs_ou = QJuliaFields.CreateColorSpinor(grid_desc)
 
 QJuliaFieldUtils.gen_random_spinor!(cs_in)
 

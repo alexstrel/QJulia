@@ -126,9 +126,9 @@ end
 
 CreateGenericField(fdesc::QJuliaGrid.QJuliaLatticeFieldDescr_qj) = QJuliaLatticeField_qj(fdesc)
 
-CreateColorSpinor(grid::QJuliaGrid.QJuliaGridDescr_qj, parity::QJuliaEnums.QJuliaParity_qj) = QJuliaLatticeField_qj(grid, QJuliaEnums.QJULIA_SCALAR_GEOMETRY, parity)
+CreateColorSpinor(grid::QJuliaGrid.QJuliaGridDescr_qj; parity::QJuliaEnums.QJuliaParity_qj = QJuliaEnums.QJULIA_INVALID_PARITY) = QJuliaLatticeField_qj(grid, QJuliaEnums.QJULIA_SCALAR_GEOMETRY, parity)
 
-CreateBlockColorSpinor(grid::QJuliaGrid.QJuliaGridDescr_qj, NBlock, parity::QJuliaEnums.QJuliaParity_qj) = QJuliaLatticeField_qj(grid, QJuliaEnums.QJULIA_SCALAR_GEOMETRY, parity; nBlock = NBlock)
+CreateBlockColorSpinor(grid::QJuliaGrid.QJuliaGridDescr_qj, NBlock; parity::QJuliaEnums.QJuliaParity_qj = QJuliaEnums.QJULIA_INVALID_PARITY) = QJuliaLatticeField_qj(grid, QJuliaEnums.QJULIA_SCALAR_GEOMETRY, parity; nBlock = NBlock)
 
 CreateGaugeField(grid::QJuliaGrid.QJuliaGridDescr_qj) = QJuliaLatticeField_qj(grid, QJuliaEnums.QJULIA_VECTOR_GEOMETRY, QJuliaEnums.QJULIA_INVALID_PARITY)
 
