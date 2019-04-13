@@ -15,7 +15,7 @@ using MPI
 using Printf
 
 #matrix_path = "/home/astrel/data/bcsstk15/bcsstk15.mtx"
-matrix_path = "/home/astrel/data/bcsstk03/bcsstk03.mtx"
+matrix_path = "/home/alex/data/bcsstk03/bcsstk03.mtx"
 #matrix_path = "/home/astrel/data/nasa2146/nasa2146.mtx"
 #matrix_path = "/home/astrel/data/nasa2910/nasa2910.mtx"
 #matrix_path = "/home/astrel/data/nasa4704/nasa4704.mtx"
@@ -121,7 +121,7 @@ solv_param.inv_type               = QJuliaEnums.QJULIA_PIPEPCG_INVERTER
 #solv_param.inv_type               = QJuliaEnums.QJULIA_PCG_INVERTER
 solv_param.inv_type_precondition  = QJuliaEnums.QJULIA_INVALID_INVERTER
 solv_param.tol                    = 1e-10
-solv_param.delta                  = 1e-1
+solv_param.delta                  = 1e+1
 #
 solv_param.maxiter                = 1000
 solv_param.Nsteps                 = 2

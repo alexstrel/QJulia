@@ -1,4 +1,4 @@
-module QJuliaPipeCG2
+module QJuliaPipeCG
 
 using QJuliaInterface
 using QJuliaEnums

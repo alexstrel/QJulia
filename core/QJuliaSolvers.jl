@@ -118,8 +118,6 @@ module QJuliaSolvers
       else
         QJuliaPipeNFCG.solver(out, inp, m, mSloppy, param, K)
       end
-    elseif param.inv_type == QJuliaEnums.QJULIA_PIPECG_INVERTER
-      QJuliaPipeCG.solver(out, inp, m,mSloppy, param, K)
     elseif param.inv_type == QJuliaEnums.QJULIA_PIPEPCG_INVERTER
       #QJuliaCGPCG.solver(out, inp, m,mSloppy, param, K)
       if K != identity_op
