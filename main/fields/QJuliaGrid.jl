@@ -96,18 +96,14 @@ mutable struct QJuliaGridDescr_qj{T<:Any} <: QJuliaGrid_qj{T}
      # Set up padding
      pad = NTuple{QJULIA_MAX_DIMS, Int}(ntuple(i->0, QJULIA_MAX_DIMS))
 
-     # Set field volume:
+     # Set (complex) field volume:
      volume = 1
      [volume *= (i[1]+i[2]) for i in zip(xx,pad)]
-
      # Set cb volume:
      volumeCB =  volume >> 1
 
-     # Set field grid volume
-     grid_volume = volume / simd_length
-
-     # Set cb grid volume
-     grid_volumeCB = volumeCB / simd_length
+     # Set field (cb) grid volume
+     grid_volume = volume / simd_length; grid_volumeCB = volumeCB / simd_length
 
      # call constructor
      new(T, nDims, xx, pad, d, ndimscomm, volume, volumeCB, grid_volume, grid_volumeCB, location)
@@ -155,7 +151,7 @@ mutable struct QJuliaLatticeFieldDescr_qj{NSpin<:Any, NColor<:Any, NBlock<:Any}
   # Defualt constructor
   QJuliaLatticeFieldDescr_qj{NSpin, NColor, NBlock}() where NSpin where NColor where NBlock  = new( missing, Float64,
                                       QJuliaEnums.QJULIA_INVALID_GEOMETRY,
-                                      NSpin, NColor, NBlock, 
+                                      NSpin, NColor, NBlock,
 				      2,
 				      QJuliaEnums.QJULIA_INVALID_PARITY)
 
@@ -171,7 +167,7 @@ mutable struct QJuliaLatticeFieldDescr_qj{NSpin<:Any, NColor<:Any, NBlock<:Any}
      # Check NBlock:
      if (NBlock < 1) ; error("NBlock parameter is incorrect, must be non-zero."); end
 
-     if geom != QJuliaEnums.QJULIA_SCALAR_GEOMETRY
+     if geom == QJuliaEnums.QJULIA_VECTOR_GEOMETRY
        #
        if (NSpin  != nothing); error("Spin dof is not allowed for this type of the field geometry"); end
        #
@@ -218,6 +214,6 @@ end
 
 CreateColorSpinorParams(grid_dscr::QJuliaGridDescr_qj, parity::QJuliaEnums.QJuliaParity_qj; NSpin::Int = 4, NColor::Int = 3, NBlock::Int = 1) = QJuliaLatticeFieldDescr_qj{NSpin, NColor, NBlock}(grid_dscr, QJuliaEnums.QJULIA_SCALAR_GEOMETRY, parity)
 
-CreateGaugeParams(grid_dscr::QJuliaGridDescr_qj, parity::QJuliaEnums.QJuliaParity_qj; NColor::Int = 3) = QJuliaLatticeFieldDescr_qj{nothing, NColor, 1}(grid_dscr, QJuliaEnums.QJULIA_SCALAR_GEOMETRY, parity)
+CreateGaugeParams(grid_dscr::QJuliaGridDescr_qj; NColor::Int = 3) = QJuliaLatticeFieldDescr_qj{nothing, NColor, 1}(grid_dscr, QJuliaEnums.QJULIA_VECTOR_GEOMETRY, QJuliaEnums.QJULIA_INVALID_PARITY)
 
 end #QJuliaGrid

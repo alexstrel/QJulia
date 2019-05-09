@@ -93,6 +93,10 @@ module QJuliaSolvers
 
   include("../main/solvers/QJuliaMR.jl")
   include("../main/solvers/QJuliaLanMR.jl")
+  include("../main/solvers/QJuliaGMRes.jl")
+  include("../main/solvers/QJuliaPLCG.jl")
+  include("../main/solvers/QJuliaP1CG.jl")
+  include("../main/solvers/QJuliaPLCG2.jl")
   include("../main/solvers/QJuliaPCG.jl")
   include("../main/solvers/QJuliaPipePCG.jl")
   include("../main/solvers/QJuliaPipeFCG.jl")
@@ -108,6 +112,10 @@ module QJuliaSolvers
 
     if param.inv_type == QJuliaEnums.QJULIA_MR_INVERTER
       QJuliaMR.solver(out, inp, m,mSloppy, param)
+    elseif param.inv_type == QJuliaEnums.QJULIA_GMRESDR_INVERTER
+      QJuliaGMRes.solver(out, inp, m,mSloppy, param)
+      #QJuliaPLCG.solver(out, inp, m,mSloppy, param)
+      #QJuliaP1CG.solver(out, inp, m,mSloppy, param)	  
     elseif param.inv_type == QJuliaEnums.QJULIA_LANMR_INVERTER
       QJuliaLanMR.solver(out, inp, m, mSloppy, param)
     elseif param.inv_type == QJuliaEnums.QJULIA_PCG_INVERTER

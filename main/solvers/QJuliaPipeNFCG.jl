@@ -69,15 +69,10 @@ cpy      = QJuliaBlas.cpy
     local m = zeros(param.dtype_sloppy, length(x))
     local n = zeros(param.dtype_sloppy, length(x))
     # set of vectors
-    local p  = Matrix{param.dtype_sloppy}(undef, length(x), mmax+1)
-    local s  = Matrix{param.dtype_sloppy}(undef, length(x), mmax+1)
-    local q  = Matrix{param.dtype_sloppy}(undef, length(x), mmax+1)
-    local z  = Matrix{param.dtype_sloppy}(undef, length(x), mmax+1)
-
-    p .=@. 0.0
-    s .=@. 0.0
-    q .=@. 0.0
-    z .=@. 0.0
+    local p  = zero(Matrix{param.dtype_sloppy}(undef, length(x), mmax+1))
+    local s  = zero(Matrix{param.dtype_sloppy}(undef, length(x), mmax+1))
+    local q  = zero(Matrix{param.dtype_sloppy}(undef, length(x), mmax+1))
+    local z  = zero(Matrix{param.dtype_sloppy}(undef, length(x), mmax+1))
     #
     local beta  = zeros(Float64, mmax+1)
     local eta   = zeros(Float64, mmax+1)
